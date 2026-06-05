@@ -37,6 +37,7 @@ open apm-mermaid.html
 | **R**           | Rename selected node                            |
 | **Del**         | Delete selected (with cascade)                  |
 | **D**           | Flip layout direction (LR ↔ RL)                 |
+| **A**           | Auto layout — un-pin everything, reflow, and fit |
 | **F**           | Fit the whole graph to the viewport             |
 | **Esc**         | Cancel any inline editor or gesture             |
 
@@ -92,8 +93,9 @@ pasting from `mermaid.live` or hand-written diagrams.
 | **New**      | Clear the canvas                                            |
 | **Open**     | Load a Mermaid `.md` / `.mmd` / `.mermaid` file             |
 | **Save**     | Download the graph as `.md` with the Mermaid block          |
-| **Fit**      | Fit the whole graph to the viewport                         |
-| **Beautify** | Un-pin every node, re-run the auto-layout, animate, then fit |
+
+Fit and auto-layout are keyboard-only: **F** fits the graph to the
+viewport, **A** runs auto layout (un-pin everything, reflow, fit).
 
 ## Notes on the implementation
 

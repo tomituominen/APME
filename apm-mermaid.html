@@ -405,8 +405,6 @@
     <button id="btn-new" title="New graph (clear the canvas)">New</button>
     <button id="btn-open" title="Open graph (load a Mermaid .md/.mmd file)">Open</button>
     <button id="btn-save" title="Save graph (download as .md with a Mermaid code block)">Save</button>
-    <button id="btn-fit" title="Fit graph to viewport">Fit</button>
-    <button id="btn-beautify" title="Beautify — re-arrange nodes into an even, aligned layout">Beautify</button>
     <span class="spacer"></span>
     <span class="hint">Keyboard-driven editor. See shortcuts at the bottom.</span>
     <input id="file-input" type="file" accept=".md,.mmd,.mermaid,text/markdown,text/plain">
@@ -428,7 +426,7 @@
     </div>
     <div id="edge-style-picker" class="hidden" role="menu" aria-label="Pick line style"></div>
     <div id="shortcut-hint">
-      <span class="kbd">N</span> new node &nbsp; <span class="kbd">Tab</span> chain &nbsp; <span class="kbd">Enter</span> sibling &nbsp; <span class="kbd">C</span> connect &nbsp; <span class="kbd">E</span> note &nbsp; <span class="kbd">←↑→↓</span> move &nbsp; <span class="kbd">R</span> rename &nbsp; <span class="kbd">Del</span> remove &nbsp; <span class="kbd">D</span> flip direction &nbsp; <span class="kbd">F</span> fit &nbsp; <span class="kbd">drag line</span> bend &nbsp; <span class="kbd">dbl-click line</span> dotted &nbsp; <span class="kbd">right-click</span> node = colour / line = label
+      <span class="kbd">N</span> new node &nbsp; <span class="kbd">Tab</span> chain &nbsp; <span class="kbd">Enter</span> sibling &nbsp; <span class="kbd">C</span> connect &nbsp; <span class="kbd">E</span> note &nbsp; <span class="kbd">←↑→↓</span> move &nbsp; <span class="kbd">R</span> rename &nbsp; <span class="kbd">Del</span> remove &nbsp; <span class="kbd">D</span> flip direction &nbsp; <span class="kbd">A</span> auto layout &nbsp; <span class="kbd">F</span> fit &nbsp; <span class="kbd">drag line</span> bend &nbsp; <span class="kbd">dbl-click line</span> dotted &nbsp; <span class="kbd">right-click</span> node = colour / line = label
     </div>
     <div id="status"></div>
   </div>
@@ -2932,12 +2930,21 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       return;
     }
 
-    /* F: fit the whole graph to the viewport (same as the Fit button). */
+    /* F: fit the whole graph to the viewport. */
     if (!typing && !onButton && !e.ctrlKey && !e.metaKey && !e.altKey
         && (e.key === "f" || e.key === "F")) {
       if (!network) return;
       e.preventDefault();
       network.fit({ animation: { duration: 220, easingFunction: "easeOutQuint" } });
+      return;
+    }
+
+    /* A: auto layout — un-pin everything, reflow, and fit. */
+    if (!typing && !onButton && !e.ctrlKey && !e.metaKey && !e.altKey
+        && (e.key === "a" || e.key === "A")) {
+      if (!network) return;
+      e.preventDefault();
+      runAutoLayout();
       return;
     }
 
@@ -3436,6 +3443,23 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (updates.length > 0) edges.update(updates);
   }
 
+  /*  Auto-layout (the action formerly behind the Beautify button, now the
+      A shortcut): discard every manual pin so the layout flows from
+      scratch, re-run the BFS auto-layout with animation so nodes glide to
+      their new slots, then fit. Edge bends are kept intact (parametric, so
+      they re-attach to the new endpoints cleanly) — only node positions
+      reset. Fit waits until the animation finishes so the framing reflects
+      the final positions. */
+  function runAutoLayout() {
+    if (!network || nodes.length === 0) return;
+    unpinAllNodes();
+    autoLayout({ animate: true });
+    setTimeout(function () {
+      if (network) network.fit({ animation: { duration: 220, easingFunction: "easeOutQuint" } });
+    }, LAYOUT_ANIM_MS + 30);
+    flashStatus("Auto layout");
+  }
+
   function flipDirection() {
     layoutDirection = layoutDirection === "RL" ? "LR" : "RL";
     /*  User asked: flipping should reset all pins and reflow cleanly.
@@ -3456,21 +3480,6 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       document.getElementById("file-input").click();
     });
     document.getElementById("btn-save").addEventListener("click", downloadMermaid);
-    document.getElementById("btn-fit").addEventListener("click", function () { if (network) network.fit(); });
-    /*  Beautify: discard every manual pin so the layout flows from scratch,
-        re-run the BFS auto-layout with animation enabled so nodes glide to
-        their new slots, then fit the result. Edge bends are kept intact
-        (they're parametric, so they re-attach to the new endpoints
-        cleanly) — only node positions are reset.
-        Fit waits until after the animation completes (LAYOUT_ANIM_MS + a
-        little slack) so the fit framing reflects the final positions. */
-    document.getElementById("btn-beautify").addEventListener("click", function () {
-      if (!network || nodes.length === 0) return;
-      unpinAllNodes();
-      autoLayout({ animate: true });
-      setTimeout(function () { if (network) network.fit({ animation: { duration: 220, easingFunction: "easeOutQuint" } }); }, LAYOUT_ANIM_MS + 30);
-      flashStatus("Beautified");
-    });
     document.getElementById("file-input").addEventListener("change", onFileChosen);
     document.addEventListener("keydown", onKeyDown);
 
