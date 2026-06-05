@@ -120,6 +120,19 @@
     inset: 0;
     background: var(--bg);
   }
+  /*  Cursor language for the canvas's interaction modes (most-specific
+      first; the !important flags win over vis-network's inline cursor):
+        idle            → grab        (the canvas is pannable)
+        hovering a node → pointer     (nodes are clickable)
+        hovering a line → grab        (lines are draggable to bend)
+        mid-bend        → grabbing
+        adding an edge  → crosshair                                      */
+  #network,
+  #network canvas { cursor: grab; }
+  #network.hover-node,
+  #network.hover-node canvas { cursor: pointer !important; }
+  #network.hover-edge,
+  #network.hover-edge canvas { cursor: grab !important; }
   #network.edge-bending,
   #network.edge-bending canvas { cursor: grabbing !important; }
   #network.adding-edge,
@@ -2284,6 +2297,23 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         try { network.storePositions(); } catch (err) {}
         params.nodes.forEach(function (id) { pinNode(id); });
       }
+    });
+
+    /*  Cursor feedback: toggle marker classes on #network as the pointer
+        enters/leaves nodes and edges. The CSS cascade (see the cursor
+        block in <style>) then picks the right cursor — pointer over a
+        node, grab over an edge, grab on empty canvas. We don't fight the
+        active-gesture classes (edge-bending / adding-edge) because those
+        rules carry !important and outrank these. */
+    var nc = document.getElementById("network");
+    network.on("hoverNode", function () { if (nc) nc.classList.add("hover-node"); });
+    network.on("blurNode",  function () { if (nc) nc.classList.remove("hover-node"); });
+    network.on("hoverEdge", function () { if (nc) nc.classList.add("hover-edge"); });
+    network.on("blurEdge",  function () { if (nc) nc.classList.remove("hover-edge"); });
+    /*  Dragging the viewport (pan) should read as grabbing; clear the
+        hover markers during a drag so they don't override it. */
+    network.on("dragStart", function () {
+      if (nc) { nc.classList.remove("hover-node"); nc.classList.remove("hover-edge"); }
     });
 
     /*  Track selection changes so Del can return focus to the previously
