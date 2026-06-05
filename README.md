@@ -37,6 +37,7 @@ open apm-mermaid.html
 | **R**           | Rename selected node                            |
 | **Del**         | Delete selected (with cascade)                  |
 | **D**           | Flip layout direction (LR ↔ RL)                 |
+| **F**           | Fit the whole graph to the viewport             |
 | **Esc**         | Cancel any inline editor or gesture             |
 
 ### Mouse gestures

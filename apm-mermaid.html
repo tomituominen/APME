@@ -428,7 +428,7 @@
     </div>
     <div id="edge-style-picker" class="hidden" role="menu" aria-label="Pick line style"></div>
     <div id="shortcut-hint">
-      <span class="kbd">N</span> new node &nbsp; <span class="kbd">Tab</span> chain &nbsp; <span class="kbd">Enter</span> sibling &nbsp; <span class="kbd">C</span> connect &nbsp; <span class="kbd">E</span> note &nbsp; <span class="kbd">←↑→↓</span> move &nbsp; <span class="kbd">R</span> rename &nbsp; <span class="kbd">Del</span> remove &nbsp; <span class="kbd">D</span> flip direction &nbsp; <span class="kbd">drag line</span> bend &nbsp; <span class="kbd">dbl-click line</span> dotted &nbsp; <span class="kbd">right-click</span> node = colour / line = label
+      <span class="kbd">N</span> new node &nbsp; <span class="kbd">Tab</span> chain &nbsp; <span class="kbd">Enter</span> sibling &nbsp; <span class="kbd">C</span> connect &nbsp; <span class="kbd">E</span> note &nbsp; <span class="kbd">←↑→↓</span> move &nbsp; <span class="kbd">R</span> rename &nbsp; <span class="kbd">Del</span> remove &nbsp; <span class="kbd">D</span> flip direction &nbsp; <span class="kbd">F</span> fit &nbsp; <span class="kbd">drag line</span> bend &nbsp; <span class="kbd">dbl-click line</span> dotted &nbsp; <span class="kbd">right-click</span> node = colour / line = label
     </div>
     <div id="status"></div>
   </div>
@@ -2929,6 +2929,15 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       if (!network) return;
       e.preventDefault();
       flipDirection();
+      return;
+    }
+
+    /* F: fit the whole graph to the viewport (same as the Fit button). */
+    if (!typing && !onButton && !e.ctrlKey && !e.metaKey && !e.altKey
+        && (e.key === "f" || e.key === "F")) {
+      if (!network) return;
+      e.preventDefault();
+      network.fit({ animation: { duration: 220, easingFunction: "easeOutQuint" } });
       return;
     }
 
