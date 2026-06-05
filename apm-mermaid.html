@@ -967,7 +967,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       var firstId = sorted[0].id;
       try { network.selectNodes([firstId]); } catch (e) {}
       trackSelection();
-      try { network.focus(firstId, { scale: network.getScale(), animation: { duration: 180 } }); } catch (e) {}
+      /*  Selection only — the viewport is intentionally left where it is so
+          arrow-key navigation moves the highlight, not the graph. */
       return;
     }
 
@@ -1012,7 +1013,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
     try { network.selectNodes([target.id]); } catch (e) {}
     trackSelection();
-    try { network.focus(target.id, { scale: network.getScale(), animation: { duration: 180 } }); } catch (e) {}
+    /*  Selection only — don't re-centre the viewport on the target. Arrow
+        keys move the highlight between nodes; the graph stays put. */
   }
 
   /* ---------- Free node creator (N shortcut) ---------- */
