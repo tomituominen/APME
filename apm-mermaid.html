@@ -428,7 +428,7 @@
     </div>
     <div id="edge-style-picker" class="hidden" role="menu" aria-label="Pick line style"></div>
     <div id="shortcut-hint">
-      <span class="kbd">N</span> new node &nbsp; <span class="kbd">Tab</span> chain &nbsp; <span class="kbd">Enter</span> sibling &nbsp; <span class="kbd">E</span> connect &nbsp; <span class="kbd">←↑→↓</span> move &nbsp; <span class="kbd">R</span> rename &nbsp; <span class="kbd">Del</span> remove &nbsp; <span class="kbd">D</span> flip direction &nbsp; <span class="kbd">drag line</span> bend &nbsp; <span class="kbd">dbl-click line</span> dotted &nbsp; <span class="kbd">right-click</span> node = colour / line = label
+      <span class="kbd">N</span> new node &nbsp; <span class="kbd">Tab</span> chain &nbsp; <span class="kbd">Enter</span> sibling &nbsp; <span class="kbd">C</span> connect &nbsp; <span class="kbd">E</span> note &nbsp; <span class="kbd">←↑→↓</span> move &nbsp; <span class="kbd">R</span> rename &nbsp; <span class="kbd">Del</span> remove &nbsp; <span class="kbd">D</span> flip direction &nbsp; <span class="kbd">drag line</span> bend &nbsp; <span class="kbd">dbl-click line</span> dotted &nbsp; <span class="kbd">right-click</span> node = colour / line = label
     </div>
     <div id="status"></div>
   </div>
@@ -2942,17 +2942,42 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       }
     }
 
-    /*  E: enter "add edge" mode. The next click on a node connects from
+    /*  C: enter "connect" mode. The next click on a node connects from
         the currently-selected source to that target. Esc or click empty
         cancels. */
     if (!typing && !onButton && !e.ctrlKey && !e.metaKey && !e.altKey
-        && (e.key === "e" || e.key === "E") && network) {
+        && (e.key === "c" || e.key === "C") && network) {
       var seSel = network.getSelection();
       if (seSel && seSel.nodes.length === 1) {
         e.preventDefault();
         startEdgeAdd(seSel.nodes[0]);
       } else {
-        flashStatus("Select a source node first, then press E.");
+        flashStatus("Select a source node first, then press C to connect.");
+      }
+      return;
+    }
+
+    /*  E: add/edit the note on the selected node. Opens the note editor
+        anchored near the node (same editor the right-click → Note action
+        uses). Plain Enter saves, Shift+Enter adds a newline, Esc cancels. */
+    if (!typing && !onButton && !e.ctrlKey && !e.metaKey && !e.altKey
+        && (e.key === "e" || e.key === "E") && network) {
+      var enSel = network.getSelection();
+      if (enSel && enSel.nodes.length === 1) {
+        e.preventDefault();
+        var enId = enSel.nodes[0];
+        var pos = null;
+        try { pos = network.getPositions([enId])[enId]; } catch (err) {}
+        var cx2 = 0, cy2 = 0;
+        if (pos) {
+          var dom = network.canvasToDOM({ x: pos.x, y: pos.y });
+          var rect = document.getElementById("network").getBoundingClientRect();
+          cx2 = rect.left + dom.x;
+          cy2 = rect.top + dom.y;
+        }
+        showNoteEditor(enId, cx2, cy2);
+      } else {
+        flashStatus("Select a node first, then press E to add a note.");
       }
       return;
     }

@@ -31,7 +31,8 @@ open apm-mermaid.html
 | **N**           | New free-floating node                          |
 | **Tab**         | Chain a new node off the selected one           |
 | **Enter**       | Sibling — new node sharing parents              |
-| **E**           | Start an "add edge" gesture; click target node  |
+| **C**           | Connect — then click a target node to draw an edge |
+| **E**           | Add / edit the note on the selected node        |
 | **← ↑ → ↓**     | Move selection / nudge node                     |
 | **R**           | Rename selected node                            |
 | **Del**         | Delete selected (with cascade)                  |
