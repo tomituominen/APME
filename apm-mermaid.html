@@ -420,7 +420,7 @@
     <input id="inline-editor" type="text" spellcheck="false" autocomplete="off" placeholder="label…">
     <div id="color-picker" class="hidden" role="menu" aria-label="Pick node colour or add a note"></div>
     <div id="note-editor" class="hidden" role="dialog" aria-label="Add a note to the node">
-      <textarea placeholder="Type a note (shows on hover)..."></textarea>
+      <textarea placeholder="Type a note (Enter saves, Shift+Enter = newline)..."></textarea>
       <div class="actions">
         <button type="button" class="cancel">Cancel</button>
         <button type="button" class="save">Save</button>
@@ -1248,17 +1248,24 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       e.stopPropagation();
       hideNoteEditor();
     });
-    /*  Keep all keystrokes inside the textarea — Escape cancels, Cmd/Ctrl+
-        Enter saves, every other key (including the global shortcuts like N,
-        Tab, Enter, R, D, …) is suppressed so typing into the note doesn't
-        accidentally trigger graph actions. */
+    /*  Keep all keystrokes inside the textarea — Escape cancels, plain
+        Enter saves, Shift+Enter inserts a newline, every other key
+        (including the global shortcuts like N, Tab, R, D, …) is suppressed
+        so typing into the note doesn't accidentally trigger graph actions. */
     ta.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
         e.preventDefault(); e.stopPropagation();
         hideNoteEditor();
         return;
       }
-      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      if (e.key === "Enter") {
+        /*  Shift+Enter → newline (let the textarea handle it natively).
+            Plain Enter → save. Cmd/Ctrl+Enter also saves, for muscle
+            memory from the old binding. */
+        if (e.shiftKey) {
+          e.stopPropagation();   /* allow the newline, just don't bubble */
+          return;
+        }
         e.preventDefault(); e.stopPropagation();
         commitNoteEditor();
         return;
