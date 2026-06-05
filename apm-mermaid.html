@@ -45,7 +45,7 @@
   #toolbar .brand {
     font-weight: 600;
     letter-spacing: 0.02em;
-    color: var(--accent);
+    color: var(--text);
     margin-right: 12px;
     display: flex;
     align-items: center;
@@ -55,10 +55,10 @@
     content: "";
     width: 10px;
     height: 10px;
-    background: var(--accent);
+    background: var(--text);
     border-radius: 50%;
     display: inline-block;
-    box-shadow: 0 0 8px var(--accent);
+    box-shadow: 0 0 8px rgba(230, 233, 239, 0.55);
   }
   #toolbar button {
     background: var(--panel-2);
@@ -2043,15 +2043,16 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     });
   }
 
-  /*  Folded-corner sticky-note glyph in the top-right of any node that
-      carries a `_note`. Drawn after vis-network paints the node so it sits
-      on top of the border. The flap is filled with the SAME colour as the
-      node itself; a darker crease + outline trace the fold, so the
-      indicator reads as a small folded page corner without breaking the
-      node's colour palette. Circle (master) nodes are skipped — the
-      folded-page metaphor doesn't apply to a round shape. */
-  var NOTE_FOLD_SIZE = 14;          /* canvas units, scales with zoom */
-  var NODE_DEFAULT_BG = "#2d4a63";  /* slate-blue, matches buildOptions default */
+  /*  Note-badge dot in the top-right corner of any node that carries a
+      `_note`. Sits half-inside / half-outside the bbox edge — the outer
+      half is visible against the canvas, the inner half ties the dot to
+      the node visually. Fill matches the node's own colour for identity;
+      a darker thin ring outlines it so the dot stays distinct from the
+      node's same-coloured fill. Works on every shape, including the
+      master circle. */
+  var NOTE_DOT_RADIUS = 7;            /* canvas units, scales with zoom */
+  var NOTE_DOT_STROKE_W = 1.5;
+  var NODE_DEFAULT_BG = "#2d4a63";    /* slate-blue, matches buildOptions default */
 
   function darkenHex(hex, amount) {
     var h = String(hex).replace("#", "");
@@ -2069,7 +2070,6 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (!ctx || !network) return;
     nodes.forEach(function (n) {
       if (!n || typeof n._note !== "string" || n._note.length === 0) return;
-      if (n.shape === "circle") return;     /* not meaningful on a round node */
 
       var bb;
       try {
@@ -2078,49 +2078,24 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       } catch (err) {}
       if (!bb) return;
 
-      /*  Right-triangle in the top-right corner of the node's bounding
-          box, with its right-angle vertex pulled inward by NOTE_FOLD_SIZE.
-          The hypotenuse — from the top edge to the right edge — is the
-          "crease" of the folded page. */
-      var s = NOTE_FOLD_SIZE;
-      var xLeft  = bb.right - s;        /* where the fold meets the top edge */
-      var yTop   = bb.top;
-      var xRight = bb.right;
-      var yBot   = bb.top + s;          /* where the fold meets the right edge */
+      /*  Dot centred on the node's top-right corner. Half of the dot is
+          inside the node's box, half is outside — so on the canvas side
+          the dot reads as a notification badge floating off the corner,
+          and on the node side it ties to the node's identity. */
+      var cx = bb.right;
+      var cy = bb.top;
 
       var bg = nodeBackgroundColor(n) || NODE_DEFAULT_BG;
-      var creaseCol = darkenHex(bg, 0.40);   /* shadow of the fold       */
-      var outlineCol = darkenHex(bg, 0.55);  /* outer edge of the flap   */
+      var ringCol = darkenHex(bg, 0.55);
 
       ctx.save();
-
-      /*  Triangular flap, same colour as the node — so the fold blends
-          into the node's palette and the indicator looks like the page's
-          own corner being lifted. */
       ctx.beginPath();
-      ctx.moveTo(xLeft, yTop);
-      ctx.lineTo(xRight, yTop);
-      ctx.lineTo(xRight, yBot);
-      ctx.closePath();
+      ctx.arc(cx, cy, NOTE_DOT_RADIUS, 0, 2 * Math.PI);
       ctx.fillStyle = bg;
       ctx.fill();
-
-      /*  Outline the flap with a darker shade of the node colour so the
-          glyph stays visible against the matching fill. */
-      ctx.lineJoin = "round";
-      ctx.lineWidth = 1.25;
-      ctx.strokeStyle = outlineCol;
+      ctx.lineWidth = NOTE_DOT_STROKE_W;
+      ctx.strokeStyle = ringCol;
       ctx.stroke();
-
-      /*  Crease line — a slightly darker stroke along the hypotenuse
-          sells the "page fold" 3D effect. */
-      ctx.beginPath();
-      ctx.moveTo(xLeft, yTop);
-      ctx.lineTo(xRight, yBot);
-      ctx.strokeStyle = creaseCol;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
       ctx.restore();
     });
   }
@@ -2358,12 +2333,6 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         var nd = nodes.get(nodeId);
         if (isWaypoint(nd)) {
           /* Waypoints have no colour to pick. Just select; user can press Delete. */
-          try { network.selectNodes([nodeId]); } catch (e) {}
-          trackSelection();
-          return;
-        }
-        /* The master node's colour is locked to red — don't offer the picker. */
-        if (nd && nd.shape === "circle") {
           try { network.selectNodes([nodeId]); } catch (e) {}
           trackSelection();
           return;
@@ -2773,11 +2742,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     edges.add(edgeList);
     recomputeNextNodeId();
 
-    /*  Apply node fill colours from `style X fill:#hex`. Master's red is
-        immutable — we don't let a saved colour override the circle. */
+    /*  Apply node fill colours from `style X fill:#hex` to every node,
+        master included — the master is no longer colour-locked. */
     Object.keys(parsed.styles).forEach(function (id) {
-      var nd = nodes.get(id);
-      if (!nd || nd.shape === "circle") return;
+      if (!nodes.get(id)) return;
       var hex = normaliseHex(parsed.styles[id].fill);
       if (hex) setNodeColor(id, hex);
     });
