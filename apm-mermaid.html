@@ -1231,6 +1231,51 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     return null;
   }
 
+  /* ---------- Shared right-click popup helpers ----------
+     The three coordinate-anchored popups (colour, note, edge-style) share the
+     same two pieces of plumbing, factored out here. */
+
+  /*  Place `el` near (clientX, clientY) while keeping it fully on-screen.
+      opts.offset nudges the popup away from the anchor point. opts.flip:true
+      moves it to the opposite side of the anchor on overflow (the small
+      right-click popups); otherwise it is clamped to the viewport edge (the
+      wider note editor). fallbackW/H cover the first open, before layout. */
+  function positionPopupAt(el, clientX, clientY, opts) {
+    opts = opts || {};
+    var offset = opts.offset || 0;
+    var w = el.offsetWidth || opts.fallbackW || 200;
+    var h = el.offsetHeight || opts.fallbackH || 200;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var px = clientX + offset, py = clientY + offset;
+    if (px + w > vw - 8) px = opts.flip ? clientX - w - offset : vw - w - 8;
+    if (py + h > vh - 8) py = opts.flip ? clientY - h - offset : vh - h - 8;
+    if (px < 8) px = 8;
+    if (py < 8) py = 8;
+    el.style.left = px + "px";
+    el.style.top = py + "px";
+  }
+
+  /*  Wire "click outside closes" — and, when opts.escape, also "Escape closes"
+      — for a popup. getEl returns the (possibly lazily-created) element; hide
+      is the popup's own hide function. Call once when the popup is built. */
+  function registerPopupDismiss(getEl, hide, opts) {
+    opts = opts || {};
+    document.addEventListener("mousedown", function (e) {
+      var el = getEl();
+      if (!el || el.classList.contains("hidden")) return;
+      if (!el.contains(e.target)) hide();
+    });
+    if (opts.escape) {
+      document.addEventListener("keydown", function (e) {
+        var el = getEl();
+        if (e.key === "Escape" && el && !el.classList.contains("hidden")) {
+          hide();
+          e.stopPropagation();
+        }
+      }, true);
+    }
+  }
+
   var colorPicker = null;
   var colorPickerNodeId = null;
 
@@ -1273,18 +1318,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       if (nodeId != null) showNoteEditor(nodeId, rect.left, rect.top);
     });
     colorPicker.appendChild(noteBtn);
-    /* Hide on outside click. */
-    document.addEventListener("mousedown", function (e) {
-      if (!colorPicker || colorPicker.classList.contains("hidden")) return;
-      if (!colorPicker.contains(e.target)) hideColorPicker();
-    });
-    /* Hide on Escape. */
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && colorPicker && !colorPicker.classList.contains("hidden")) {
-        hideColorPicker();
-        e.stopPropagation();
-      }
-    }, true);
+    registerPopupDismiss(function () { return colorPicker; }, hideColorPicker, { escape: true });
     return colorPicker;
   }
 
@@ -1305,18 +1339,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         b.classList.remove("active");
       }
     }
-    var w = cp.offsetWidth || 200;
-    var h = cp.offsetHeight || 200;
-    var vw = window.innerWidth;
-    var vh = window.innerHeight;
-    var px = clientX + 6;
-    var py = clientY + 6;
-    if (px + w > vw - 8) px = clientX - w - 6;
-    if (py + h > vh - 8) py = clientY - h - 6;
-    if (px < 8) px = 8;
-    if (py < 8) py = 8;
-    cp.style.left = px + "px";
-    cp.style.top = py + "px";
+    positionPopupAt(cp, clientX, clientY, { offset: 6, flip: true, fallbackW: 200, fallbackH: 200 });
   }
 
   function hideColorPicker() {
@@ -1380,11 +1403,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       /* Stop propagation so the document-level keydown handler doesn't run. */
       e.stopPropagation();
     }, true);
-    /* Hide on outside mousedown. */
-    document.addEventListener("mousedown", function (e) {
-      if (!noteEditor || noteEditor.classList.contains("hidden")) return;
-      if (!noteEditor.contains(e.target)) hideNoteEditor();
-    });
+    /* Escape is handled inside the textarea keydown above, so no doc-level
+       Escape here — just close on outside mousedown. */
+    registerPopupDismiss(function () { return noteEditor; }, hideNoteEditor);
     return noteEditor;
   }
 
@@ -1397,20 +1418,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     var ta = ed.querySelector("textarea");
     ta.value = typeof n._note === "string" ? n._note : "";
     ed.classList.remove("hidden");
-    /*  Position near (clientX, clientY) but keep on-screen — same logic as
-        the colour picker placement so the popups feel consistent. */
-    var w = ed.offsetWidth || 280;
-    var h = ed.offsetHeight || 160;
-    var vw = window.innerWidth;
-    var vh = window.innerHeight;
-    var px = clientX;
-    var py = clientY;
-    if (px + w > vw - 8) px = vw - w - 8;
-    if (py + h > vh - 8) py = vh - h - 8;
-    if (px < 8) px = 8;
-    if (py < 8) py = 8;
-    ed.style.left = px + "px";
-    ed.style.top = py + "px";
+    /* Clamp to the viewport edge (no flip) so the wider editor stays put. */
+    positionPopupAt(ed, clientX, clientY, { fallbackW: 280, fallbackH: 160 });
     /* Focus the textarea and put the caret at the end so existing notes
        are easy to extend. */
     setTimeout(function () {
@@ -1498,16 +1507,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       });
       edgeStylePicker.appendChild(b);
     });
-    document.addEventListener("mousedown", function (e) {
-      if (!edgeStylePicker || edgeStylePicker.classList.contains("hidden")) return;
-      if (!edgeStylePicker.contains(e.target)) hideEdgeStylePicker();
-    });
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && edgeStylePicker && !edgeStylePicker.classList.contains("hidden")) {
-        hideEdgeStylePicker();
-        e.stopPropagation();
-      }
-    }, true);
+    registerPopupDismiss(function () { return edgeStylePicker; }, hideEdgeStylePicker, { escape: true });
     return edgeStylePicker;
   }
 
@@ -1527,16 +1527,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         buttons[i].classList.remove("active");
       }
     }
-    var w = p.offsetWidth || 180;
-    var h = p.offsetHeight || 100;
-    var vw = window.innerWidth, vh = window.innerHeight;
-    var px = clientX + 6, py = clientY + 6;
-    if (px + w > vw - 8) px = clientX - w - 6;
-    if (py + h > vh - 8) py = clientY - h - 6;
-    if (px < 8) px = 8;
-    if (py < 8) py = 8;
-    p.style.left = px + "px";
-    p.style.top = py + "px";
+    positionPopupAt(p, clientX, clientY, { offset: 6, flip: true, fallbackW: 180, fallbackH: 100 });
   }
 
   function hideEdgeStylePicker() {
