@@ -5,6 +5,14 @@
 <title>Attack Path Mapper</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
+  /* ===========================================================================
+     APM stylesheet. Dark theme driven by the CSS custom properties in :root.
+     Organised top-down: design tokens & base, then the toolbar, the canvas
+     surface, vis-network chrome overrides, and each floating UI piece
+     (editors / pickers / hints) in roughly the order they appear in <body>.
+     =========================================================================== */
+
+  /* === Design tokens & base === */
   :root {
     --bg: #14171c;
     --panel: #1f232b;
@@ -33,6 +41,7 @@
     flex-direction: column;
     height: 100vh;
   }
+  /* === Toolbar === */
   #toolbar {
     display: flex;
     align-items: center;
@@ -93,6 +102,7 @@
     font-size: 12px;
     margin-left: 8px;
   }
+  /* === Canvas surface, vignette & cursor states === */
   #canvas-wrap {
     flex: 1 1 auto;
     position: relative;
@@ -138,6 +148,7 @@
   #network.adding-edge,
   #network.adding-edge canvas { cursor: crosshair !important; }
   /* vis-network manipulation toolbar restyle */
+  /* === vis-network built-in chrome (hidden / restyled) === */
   .vis-network .vis-navigation .vis-button,
   .vis-manipulation,
   .vis-edit-mode {
@@ -164,6 +175,7 @@
   .vis-button .vis-label {
     color: var(--text) !important;
   }
+  /* === Empty-canvas hint & status bar === */
   #file-input { display: none; }
   #empty-hint {
     position: absolute;
@@ -198,6 +210,7 @@
     border-radius: 4px;
     pointer-events: none;
   }
+  /* === Inline label editor === */
   #inline-editor {
     position: absolute;
     display: none;
@@ -219,6 +232,7 @@
     text-align: center;
   }
   #inline-editor::placeholder { color: rgba(236, 240, 246, 0.55); }
+  /* === Colour picker === */
   #color-picker {
     position: absolute;
     display: grid;
@@ -272,6 +286,7 @@
     background: rgba(255, 255, 255, 0.12);
     border-color: rgba(255, 255, 255, 0.25);
   }
+  /* === Note editor === */
   #note-editor {
     position: absolute;
     display: flex;
@@ -327,6 +342,7 @@
     background: var(--accent-hi, var(--accent));
     filter: brightness(1.1);
   }
+  /* === Edge-style picker === */
   #edge-style-picker {
     position: absolute;
     display: flex;
@@ -375,6 +391,7 @@
     border-top-style: dotted;
     border-top-width: 3px;
   }
+  /* === Shortcut hint overlay === */
   #shortcut-hint {
     position: absolute;
     bottom: 8px;
@@ -470,6 +487,52 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 (function () {
   "use strict";
 
+  /* ===========================================================================
+     APM — Attack Path Mapper · application code
+     ---------------------------------------------------------------------------
+     A single-file, no-build browser tool. vis-network (inlined & minified above)
+     owns the node/edge data store plus pan / zoom / hit-testing; everything
+     below is the APM layer on top of it: input gestures, floating editors,
+     custom canvas rendering, Mermaid import/export, and a BFS auto-layout
+     engine.
+
+     All app code lives in this one IIFE, grouped into the numbered sections
+     below. Search "SECTION N" to jump to one. Functions inside a section are
+     ordered roughly in call order.
+
+        1  Module state & core constants
+        2  Edge-add gesture (press C)
+        3  Selection, status bar & graph queries
+        4  Node identity & master node
+        5  Inline label editor
+        6  Node creation & keyboard navigation
+        7  Colour palette & picker
+        8  Note editor
+        9  Edge style picker (solid / dotted)
+       10  Edge geometry & drag-to-bend
+       11  Custom canvas draw passes
+       12  Network construction & event wiring
+       13  Graph lifecycle & Mermaid I/O
+       14  Keyboard handling
+       15  Auto-layout engine (BFS)
+       16  Boot / DOM wiring
+
+     Data model (vis-network DataSets, with APM-specific fields prefixed "_"):
+       node  { id, label, shape:"circle"|"box", color, _note?, _pinned? }
+       edge  { id, from, to, dashes?, _bend?:{x,y} }
+     Persistence: a single "%% APM-DATA: {json}" comment inside the Mermaid
+     block carries the things plain Mermaid can't express — absolute node
+     positions, parametric edge bends, and hover notes. The rest of the block
+     is standard Mermaid, so GitHub / mermaid.live still render the diagram.
+     =========================================================================== */
+
+  /* ===========================================================================
+     SECTION 1 · MODULE STATE & CORE CONSTANTS
+     Live graph data (the two DataSets + the network instance) and the small
+     pieces of UI state that several sections read or mutate. Section-local
+     constants live next to the code that uses them, further down.
+     =========================================================================== */
+
   var nodes = new vis.DataSet([]);
   var edges = new vis.DataSet([]);
   var network = null;
@@ -498,6 +561,12 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       click on a different node completes the gesture and creates the edge;
       click empty or Esc cancels. */
   var edgeAddSource = null;
+
+  /* ===========================================================================
+     SECTION 2 · EDGE-ADD GESTURE (press C)
+     A two-step "connect" mode: pressing C arms a source node, then the next
+     click on a different node draws the edge. Esc or an empty click cancels.
+     =========================================================================== */
 
   function startEdgeAdd(sourceId) {
     if (!sourceId || !nodes.get(sourceId)) return;
@@ -539,6 +608,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     trackSelection();
     flashStatus("Connected.");
   }
+
+  /* ===========================================================================
+     SECTION 3 · SELECTION, STATUS BAR & GRAPH QUERIES
+     Tracks the current/previous selected node (so Delete can restore focus),
+     the transient status flash, the empty-canvas hint, and graph traversals
+     such as descendantsOf() used by cascade delete.
+     =========================================================================== */
 
   function trackSelection() {
     if (!network) return;
@@ -612,6 +688,12 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     }
   }
 
+  /* ===========================================================================
+     SECTION 4 · NODE IDENTITY & MASTER NODE
+     Monotonic id allocation and the "master" node — the single red circle that
+     the first-created node is promoted to and that the layout engine roots on.
+     =========================================================================== */
+
   function newNodeId() {
     var id;
     do {
@@ -676,6 +758,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var inlineEditorIsNew = false;
   var inlineEditorOriginalLabel = "";
   var inlineEditorClosing = false;
+
+  /* ===========================================================================
+     SECTION 5 · INLINE LABEL EDITOR
+     The floating single-line <input> used to rename a node or edit an edge
+     label in place. ensure/show/hide manage its lifecycle; commit/cancel and
+     the key handler decide what happens on Enter / Esc / blur.
+     =========================================================================== */
 
   function ensureInlineEditor() {
     if (inlineEditor) return inlineEditor;
@@ -885,6 +974,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   /* ---------- Tab-to-chain ---------- */
 
+  /* ===========================================================================
+     SECTION 6 · NODE CREATION & KEYBOARD NAVIGATION
+     Builds new nodes from the keyboard — chained child (Tab), sibling (Enter),
+     free-floating (N) — and moves the selection between nodes with the arrow
+     keys using a directional-cone pick.
+     =========================================================================== */
+
   function createConnectedNode(fromId, direction) {
     if (!network) return null;
     var src = nodes.get(fromId);
@@ -1062,6 +1158,12 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       tool's default node colour so picking it visually "resets" a node. */
   /*  Eight visually distinct hues — enough to categorise nodes by phase /
       severity / team without overwhelming the picker with near-duplicates. */
+  /* ===========================================================================
+     SECTION 7 · COLOUR PALETTE & PICKER
+     The 8-swatch fill palette, hex helpers (lighten/normalise/colour-object),
+     and the right-click swatch popup that also hosts the "Note" action.
+     =========================================================================== */
+
   var PALETTE = [
     "#2d4a63", // default slate-blue
     "#b3434a", // crimson
@@ -1233,6 +1335,12 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var noteEditor = null;
   var noteEditorNodeId = null;
 
+  /* ===========================================================================
+     SECTION 8 · NOTE EDITOR
+     The floating multi-line textarea for a node's hover note (stored as
+     node._note). Enter saves, Shift+Enter inserts a newline.
+     =========================================================================== */
+
   function ensureNoteEditor() {
     if (noteEditor) return noteEditor;
     noteEditor = document.getElementById("note-editor");
@@ -1338,6 +1446,12 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   /*  vis-network represents "dotted" via a custom dash pattern; we use a
       tight pattern that visually reads as dots. On Mermaid export this
       becomes the `-.-` connector. */
+  /* ===========================================================================
+     SECTION 9 · EDGE STYLE PICKER (solid / dotted)
+     Toggles an edge between solid and dotted (vis-network's native `dashes`),
+     via the right-click edge popup or a double-click on the line.
+     =========================================================================== */
+
   var DOTTED_PATTERN = [2, 8];
   var EDGE_STYLES = [
     { key: "solid",  dashes: false,           dot: "solid",  label: "Solid" },
@@ -1431,6 +1545,14 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     edgeStylePicker.classList.add("hidden");
     edgeStylePickerEdgeId = null;
   }
+
+  /* ===========================================================================
+     SECTION 10 · EDGE GEOMETRY & DRAG-TO-BEND
+     Quadratic-Bezier maths (point sampling, abs<->param conversion, hit-test)
+     and the mouse handlers that let you grab a line and bend it. Shared by the
+     custom edge renderer in Section 11. See the block comment just below for
+     how a bend is stored and why it scales with the endpoints.
+     =========================================================================== */
 
   /* ---------- Drag a line to bend it (smooth Bezier) ----------
      Click-and-hold anywhere on an edge, then drag — the cursor becomes the
@@ -1823,6 +1945,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       units so the grid scales with zoom — gives a sense of "depth" without
       the dots ever crowding or vanishing. Snap origin to a grid multiple
       so dots stay perfectly aligned as the user pans. */
+  /* ===========================================================================
+     SECTION 11 · CUSTOM CANVAS DRAW PASSES
+     Everything APM paints on top of vis-network via its beforeDrawing /
+     afterDrawing hooks: dot-grid backdrop, master aura, per-node gradient
+     shine, bent edges, edge labels and the corner note badge.
+     =========================================================================== */
+
   var DOT_GRID_SPACING = 40;
   var DOT_GRID_RADIUS  = 1.6;
   var DOT_GRID_COLOR   = "rgba(255, 255, 255, 0.13)";
@@ -2180,6 +2309,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     ctx.restore();
   }
 
+  /* ===========================================================================
+     SECTION 12 · NETWORK CONSTRUCTION & EVENT WIRING
+     buildOptions() is the vis-network config; initNetwork() instantiates the
+     network, registers the draw hooks from Section 11, and wires the mouse /
+     selection / hover events that drive the rest of the app.
+     =========================================================================== */
+
   function buildOptions() {
     return {
       autoResize: true,
@@ -2441,6 +2577,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       nc._aptHoverBound = true;
     }
   }
+
+  /* ===========================================================================
+     SECTION 13 · GRAPH LIFECYCLE & MERMAID I/O
+     New/clear, plus the file format: downloadMermaid() serialises to a fenced
+     Mermaid block with the APM-DATA comment; parseMermaidBody()/loadMermaid()
+     read it back (also accepting plain hand-written Mermaid).
+     =========================================================================== */
 
   function clearGraph(skipConfirm) {
     if (!skipConfirm && (nodes.length > 0 || edges.length > 0)) {
@@ -2882,6 +3025,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     ev.target.value = "";
   }
 
+  /* ===========================================================================
+     SECTION 14 · KEYBOARD HANDLING
+     The global keydown router. Maps every shortcut (N/Tab/Enter/C/E/R/Del/
+     D/A/F/arrows/Esc) to the relevant action, while deferring to inline
+     editors when one has focus.
+     =========================================================================== */
+
   function onKeyDown(e) {
     var tag = document.activeElement && document.activeElement.tagName;
     var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
@@ -3105,6 +3255,14 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
      layout direction (RL → master on right, LR → master on left).
      Nodes flagged `_pinned: true` are left where they are. Manual drags
      pin a node; explicit "flip direction" un-pins everything. */
+
+  /* ===========================================================================
+     SECTION 15 · AUTO-LAYOUT ENGINE (BFS)
+     Assigns nodes to depth levels from the master via BFS (computeLevels),
+     measures node + edge-label widths so wide content never overlaps, places
+     each level into a column, and animates nodes to their slots. Honours
+     per-node _pinned so manually dragged nodes stay put.
+     =========================================================================== */
 
   var LEVEL_STEP = 380;   /* horizontal spacing between depth levels (default) */
   var SIBLING_STEP = 200; /* vertical spacing between same-level nodes */
@@ -3472,6 +3630,12 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     setTimeout(function () { if (network) network.fit({ animation: { duration: 240 } }); }, 30);
     flashStatus("Direction: " + (layoutDirection === "RL" ? "right-to-left (←)" : "left-to-right (→)"));
   }
+
+  /* ===========================================================================
+     SECTION 16 · BOOT / DOM WIRING
+     Entry point: build the network, bind the toolbar buttons and file input,
+     register the global key handler, and guard against losing unsaved work.
+     =========================================================================== */
 
   window.addEventListener("DOMContentLoaded", function () {
     initNetwork();

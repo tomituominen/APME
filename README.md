@@ -19,8 +19,8 @@ open apm-mermaid.html
 - Per-edge labels, solid/dotted styles, and parametric Bezier bends.
 - BFS-based auto-layout that's aware of node widths and edge label widths so
   long labels never collide with wide nodes.
-- Beautify button: un-pins every manual drag, re-runs the layout, and animates
-  nodes to their new slots.
+- Auto layout (**A** key): un-pins every manual drag, re-runs the layout, and
+  animates nodes to their new slots.
 - Save → `.md` with a fenced ` ```mermaid ` block. GitHub renders it as a
   diagram; the tool reloads it with full fidelity.
 
@@ -49,7 +49,7 @@ open apm-mermaid.html
 - **Right-click a node** — colour swatches + **Note** action.
 - **Right-click a line** — open the edge label editor.
 - **Drag a node** — "pin" it; the auto-layout will leave that node alone
-  thereafter (until Beautify un-pins everything).
+  thereafter (until auto layout — the **A** key — un-pins everything).
 
 ## File format
 
