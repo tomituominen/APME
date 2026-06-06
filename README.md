@@ -29,13 +29,13 @@ open apm-mermaid.html
 | Key             | Action                                          |
 | --------------- | ----------------------------------------------- |
 | **N**           | New free-floating node                          |
-| **Tab**         | Chain a new node off the selected one           |
+| **Tab**         | Chain a new node off the selected one (Shift+Tab reverses the edge) |
 | **Enter**       | Sibling — new node sharing parents              |
 | **C**           | Connect — then click a target node to draw an edge |
 | **E**           | Add / edit the note on the selected node        |
-| **← ↑ → ↓**     | Move selection / nudge node                     |
+| **← ↑ → ↓**     | Move the selection to the nearest node          |
 | **R**           | Rename selected node                            |
-| **Del**         | Delete selected (with cascade)                  |
+| **Del** / **Backspace** | Delete selected (with cascade)          |
 | **D**           | Flip layout direction (LR ↔ RL)                 |
 | **A**           | Auto layout — un-pin everything, reflow, and fit |
 | **F**           | Fit the whole graph to the viewport             |
