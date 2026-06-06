@@ -984,7 +984,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   function createConnectedNode(fromId, direction) {
     if (!network) return null;
     var src = nodes.get(fromId);
-    if (!src || isWaypoint(src)) return null;
+    if (!src) return null;
     /*  Direction-aware edge orientation. With layoutDirection RL (master on
         right), the natural "forward" chain places the new node on the LEFT
         of the source — i.e. Tab adds a child further into the attack path.
@@ -1012,7 +1012,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   function createSiblingNode(forNodeId) {
     if (!network) return null;
     var src = nodes.get(forNodeId);
-    if (!src || isWaypoint(src)) return null;
+    if (!src) return null;
 
     var parents = [];
     var allEdges = edges.get();
@@ -1044,8 +1044,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   function navigateSelection(direction) {
     if (!network) return;
     try { network.storePositions(); } catch (e) {}
-    /* Waypoints are visual handles, not navigation targets. */
-    var all = nodes.get().filter(function (n) { return !isWaypoint(n); });
+    var all = nodes.get();
     if (all.length === 0) return;
 
     var sel = network.getSelection();
@@ -1582,9 +1581,6 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var STRAIGHT_SNAP_PX = 5;          /* canvas units */
   var TRANSPARENT = "rgba(0,0,0,0)";
   var edgeBend = null;
-
-  /* Identity check kept (always false) so older call-sites compile cleanly. */
-  function isWaypoint(_node) { return false; }
 
   /* --- geometry helpers --- */
 
@@ -2503,13 +2499,6 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       var nodeId = null;
       try { nodeId = network.getNodeAt(params.pointer.DOM); } catch (e) {}
       if (nodeId != null) {
-        var nd = nodes.get(nodeId);
-        if (isWaypoint(nd)) {
-          /* Waypoints have no colour to pick. Just select; user can press Delete. */
-          try { network.selectNodes([nodeId]); } catch (e) {}
-          trackSelection();
-          return;
-        }
         try { network.selectNodes([nodeId]); } catch (e) {}
         trackSelection();
         showColorPicker(nodeId, cx, cy);
@@ -3103,7 +3092,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (!typing && !onButton && !e.ctrlKey && !e.metaKey && !e.altKey
         && (e.key === "r" || e.key === "R") && network) {
       var s = network.getSelection();
-      if (s && s.nodes.length === 1 && !isWaypoint(nodes.get(s.nodes[0]))) {
+      if (s && s.nodes.length === 1) {
         e.preventDefault();
         showInlineEditor(s.nodes[0], { isNew: false });
         return;
