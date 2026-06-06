@@ -342,55 +342,6 @@
     background: var(--accent-hi, var(--accent));
     filter: brightness(1.1);
   }
-  /* === Edge-style picker === */
-  #edge-style-picker {
-    position: absolute;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 8px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
-    z-index: 40;
-    min-width: 160px;
-  }
-  #edge-style-picker.hidden { display: none; }
-  #edge-style-picker button {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    background: var(--panel-2);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    font-size: 13px;
-    font-family: inherit;
-    cursor: pointer;
-    text-align: left;
-    transition: background 0.1s ease, border-color 0.1s ease;
-  }
-  #edge-style-picker button:hover {
-    background: #343a47;
-    border-color: #4a525f;
-  }
-  #edge-style-picker button.active {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
-  }
-  #edge-style-picker .line-preview {
-    display: inline-block;
-    width: 44px;
-    height: 0;
-    border-top: 2px solid #c8d0dd;
-    flex: 0 0 auto;
-  }
-  #edge-style-picker .line-preview.dotted {
-    border-top-style: dotted;
-    border-top-width: 3px;
-  }
   /* === Shortcut hint overlay === */
   #shortcut-hint {
     position: absolute;
@@ -441,7 +392,6 @@
         <button type="button" class="save">Save</button>
       </div>
     </div>
-    <div id="edge-style-picker" class="hidden" role="menu" aria-label="Pick line style"></div>
     <div id="shortcut-hint">
       <span class="kbd">N</span> new node &nbsp; <span class="kbd">Tab</span> chain &nbsp; <span class="kbd">Enter</span> sibling &nbsp; <span class="kbd">C</span> connect &nbsp; <span class="kbd">E</span> note &nbsp; <span class="kbd">←↑→↓</span> move &nbsp; <span class="kbd">R</span> rename &nbsp; <span class="kbd">Del</span> remove &nbsp; <span class="kbd">D</span> flip direction &nbsp; <span class="kbd">A</span> auto layout &nbsp; <span class="kbd">F</span> fit &nbsp; <span class="kbd">drag line</span> bend &nbsp; <span class="kbd">dbl-click line</span> dotted &nbsp; <span class="kbd">right-click</span> node = colour / line = label
     </div>
@@ -508,7 +458,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         6  Node creation & keyboard navigation
         7  Colour palette & picker
         8  Note editor
-        9  Edge style picker (solid / dotted)
+        9  Edge dotted style (solid / dotted)
        10  Edge geometry & drag-to-bend
        11  Custom canvas draw passes
        12  Network construction & event wiring
@@ -1450,21 +1400,16 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     noteEditorNodeId = null;
   }
 
-  /* ---------- Edge style picker (solid / dotted) ---------- */
-  /*  vis-network represents "dotted" via a custom dash pattern; we use a
-      tight pattern that visually reads as dots. On Mermaid export this
-      becomes the `-.-` connector. */
   /* ===========================================================================
-     SECTION 9 · EDGE STYLE PICKER (solid / dotted)
-     Toggles an edge between solid and dotted (vis-network's native `dashes`),
-     via the right-click edge popup or a double-click on the line.
+     SECTION 9 · EDGE DOTTED STYLE
+     An edge is solid or dotted, represented by vis-network's native `dashes`.
+     DOTTED_PATTERN is a tight dash array that reads as dots (and maps to the
+     Mermaid `-.-` connector on export). The dotted toggle lives on the
+     double-click handler in Section 10; these two helpers are shared by it
+     and the Mermaid I/O in Section 13.
      =========================================================================== */
 
   var DOTTED_PATTERN = [2, 8];
-  var EDGE_STYLES = [
-    { key: "solid",  dashes: false,           dot: "solid",  label: "Solid" },
-    { key: "dotted", dashes: DOTTED_PATTERN,  dot: "dotted", label: "Dotted" }
-  ];
 
   function edgeIsDotted(edge) {
     if (!edge) return false;
@@ -1472,68 +1417,6 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (d === true) return true;            // any dash pattern → treat as dotted
     if (Array.isArray(d) && d.length > 0) return true;
     return false;
-  }
-
-  function setEdgeStyle(edgeId, key) {
-    var match = EDGE_STYLES.find(function (s) { return s.key === key; });
-    if (!match || !edges.get(edgeId)) return;
-    edges.update({ id: edgeId, dashes: match.dashes });
-  }
-
-  var edgeStylePicker = null;
-  var edgeStylePickerEdgeId = null;
-
-  function ensureEdgeStylePicker() {
-    if (edgeStylePicker) return edgeStylePicker;
-    edgeStylePicker = document.getElementById("edge-style-picker");
-    if (!edgeStylePicker) return null;
-    EDGE_STYLES.forEach(function (opt) {
-      var b = document.createElement("button");
-      b.type = "button";
-      b.setAttribute("data-style", opt.key);
-      var prev = document.createElement("span");
-      prev.className = "line-preview" + (opt.key === "dotted" ? " dotted" : "");
-      var txt = document.createElement("span");
-      txt.textContent = opt.label;
-      b.appendChild(prev);
-      b.appendChild(txt);
-      b.addEventListener("click", function (e) {
-        e.stopPropagation();
-        if (edgeStylePickerEdgeId != null) {
-          setEdgeStyle(edgeStylePickerEdgeId, opt.key);
-          flashStatus("Line style: " + opt.label);
-        }
-        hideEdgeStylePicker();
-      });
-      edgeStylePicker.appendChild(b);
-    });
-    registerPopupDismiss(function () { return edgeStylePicker; }, hideEdgeStylePicker, { escape: true });
-    return edgeStylePicker;
-  }
-
-  function showEdgeStylePicker(edgeId, clientX, clientY) {
-    var p = ensureEdgeStylePicker();
-    if (!p) return;
-    edgeStylePickerEdgeId = edgeId;
-    p.classList.remove("hidden");
-    var current = edges.get(edgeId);
-    var isDotted = edgeIsDotted(current);
-    var buttons = p.querySelectorAll("button");
-    for (var i = 0; i < buttons.length; i++) {
-      var key = buttons[i].getAttribute("data-style");
-      if ((isDotted && key === "dotted") || (!isDotted && key === "solid")) {
-        buttons[i].classList.add("active");
-      } else {
-        buttons[i].classList.remove("active");
-      }
-    }
-    positionPopupAt(p, clientX, clientY, { offset: 6, flip: true, fallbackW: 180, fallbackH: 100 });
-  }
-
-  function hideEdgeStylePicker() {
-    if (!edgeStylePicker) return;
-    edgeStylePicker.classList.add("hidden");
-    edgeStylePickerEdgeId = null;
   }
 
   /* ===========================================================================
@@ -1739,7 +1622,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (inlineEditor && inlineEditor.style.display !== "none") return;
     var t = e.target;
     if (t && t.closest) {
-      if (t.closest("#color-picker") || t.closest("#edge-style-picker")) return;
+      if (t.closest("#color-picker")) return;
     }
 
     var container = document.getElementById("network");
@@ -2482,7 +2365,6 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     network.on("oncontext", function (params) {
       if (params && params.event) params.event.preventDefault();
       hideColorPicker();
-      hideEdgeStylePicker();
       if (!params) return;
       var cx = params.event ? (params.event.clientX || 0) : 0;
       var cy = params.event ? (params.event.clientY || 0) : 0;
