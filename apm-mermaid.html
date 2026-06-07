@@ -3773,7 +3773,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
      =========================================================================== */
 
   var LEVEL_STEP = 380;   /* horizontal spacing between depth levels (default) */
-  var SIBLING_STEP = 200; /* vertical spacing between same-level nodes */
+  var SIBLING_STEP = 200; /* nominal vertical centre-to-centre for same-level nodes */
+  var SIBLING_GAP = 48;   /* minimum CLEAR vertical gap between node edges (tall nodes) */
   var MIN_LEVEL_GAP = 80; /* minimum visual gap between adjacent column edges */
   /*  Extra clearance reserved around edge labels in a column gap. The
       label sits centred in the visible chord between two nodes, so half
@@ -3798,6 +3799,52 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       return Math.min(460 + 48, Math.max(80, est));
     }
     return 100;
+  }
+
+  /*  Height of a node's box. autoLayout calls network._resizeNodes() first,
+      so shape.height/radius are freshly measured (boundingBox lags a frame, so
+      we read the shape dims directly). Used to space siblings vertically so
+      tall nodes — big circles, wrapped multi-line labels, cylinders — don't
+      overlap their neighbours. */
+  function nodeHeightFor(id) {
+    try {
+      var v = network && network.body && network.body.nodes && network.body.nodes[id];
+      if (v && v.shape) {
+        if (typeof v.shape.height === "number" && v.shape.height > 0) return v.shape.height;
+        if (typeof v.shape.radius === "number" && v.shape.radius > 0) return v.shape.radius * 2;
+      }
+    } catch (e) {}
+    var bb = nodeBBox(id);
+    if (bb) return bb.bottom - bb.top;
+    return 76;
+  }
+
+  /*  Place `ids` as a vertical stack at column x = levelX, centred on `centre`.
+      Consecutive nodes are spaced by the larger of SIBLING_STEP (the nominal
+      look for normal-sized nodes) and an edge-clearance term (half-heights +
+      SIBLING_GAP) so tall nodes never overlap. `prev` ({center, half} of the
+      previous cluster's last node, or null) lets adjacent clusters keep clear
+      of each other too. Returns {center, half} of this stack's last node. */
+  function layoutStack(ids, levelX, centre, prev) {
+    var n = ids.length;
+    if (n === 0) return prev;
+    var hs = ids.map(nodeHeightFor);
+    var off = [0];
+    for (var i = 1; i < n; i++) {
+      off.push(off[i - 1] + Math.max(SIBLING_STEP, hs[i - 1] / 2 + SIBLING_GAP + hs[i] / 2));
+    }
+    var topEdge = -hs[0] / 2;
+    var bottomEdge = off[n - 1] + hs[n - 1] / 2;
+    var shift = centre - (topEdge + bottomEdge) / 2;     /* centre the stack on `centre` */
+    if (prev) {
+      /*  Keep the first node clear of the previous cluster's last node by the
+          same rule, so clusters don't collide when one is tall. */
+      var minStep = Math.max(SIBLING_STEP, prev.half + SIBLING_GAP + hs[0] / 2);
+      var need = (prev.center + minStep) - (off[0] + shift);
+      if (need > 0) shift += need;
+    }
+    for (var j = 0; j < n; j++) placeNode(ids[j], levelX, off[j] + shift);
+    return { center: off[n - 1] + shift, half: hs[n - 1] / 2 };
   }
 
   /*  Measure the rendered box width of an edge label using the same font
@@ -4013,18 +4060,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
       if (l === 0) {
         /*  Level 0: master first (visual anchor), then any other in-degree-0
-            roots distributed evenly around the anchor.y. */
+            roots distributed (height-aware) around the anchor.y. */
         movable.sort(function (a, b) {
           if (a._master && !b._master) return -1;
           if (b._master && !a._master) return 1;
           return orderKey(a.id) - orderKey(b.id);
         });
-        var count0 = movable.length;
-        var totalH0 = (count0 - 1) * SIBLING_STEP;
-        var startY0 = anchorY - totalH0 / 2;
-        movable.forEach(function (n, i) {
-          placeNode(n.id, levelX, startY0 + i * SIBLING_STEP);
-        });
+        layoutStack(movable.map(function (n) { return n.id; }), levelX, anchorY, null);
         continue;
       }
 
@@ -4057,32 +4099,23 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         groups[key].ids.push(n.id);
       });
 
-      /*  Walk clusters in centre-y order, placing each as a contiguous
-          block of nodes spaced by SIBLING_STEP. Min-spacing is enforced
-          ONLY at cluster boundaries (top of cluster N+1 ≥ bottom of
-          cluster N + SIBLING_STEP), so a small cluster never gets its
-          members shuffled past a sibling cluster's centre — that's what
-          caused the crossings before. Cluster ordering by centre matches
-          parent ordering on the previous level, so child rows preserve
-          parent rows. */
+      /*  Walk clusters in centre-y order, placing each as a contiguous,
+          height-aware stack (see layoutStack). Clearance is enforced ONLY at
+          cluster boundaries — threading the previous cluster's last node so a
+          small cluster never gets its members shuffled past a sibling
+          cluster's centre (that's what caused the crossings before), while
+          tall nodes still push the next cluster clear. Cluster ordering by
+          centre matches parent ordering on the previous level, so child rows
+          preserve parent rows. */
       var sortedGroups = Object.keys(groups).map(function (k) { return groups[k]; });
       sortedGroups.sort(function (a, b) { return a.centre - b.centre; });
-      var lastBottom = -Infinity;
+      var prevTail = null;
       sortedGroups.forEach(function (g) {
         /*  Order siblings within the cluster. With no hint every key is 0, so
             this stable sort is a no-op and the existing bucket order stands;
             with a hint (Enter-insert) it slots the new node into place. */
         g.ids.sort(function (id1, id2) { return orderKey(id1) - orderKey(id2); });
-        var gCount = g.ids.length;
-        var gHeight = (gCount - 1) * SIBLING_STEP;
-        var idealTop = g.centre - gHeight / 2;
-        var actualTop = (lastBottom === -Infinity)
-          ? idealTop
-          : Math.max(idealTop, lastBottom + SIBLING_STEP);
-        g.ids.forEach(function (id, i) {
-          placeNode(id, levelX, actualTop + i * SIBLING_STEP);
-        });
-        lastBottom = actualTop + gHeight;
+        prevTail = layoutStack(g.ids, levelX, g.centre, prevTail);
       });
     }
 
