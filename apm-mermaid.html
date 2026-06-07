@@ -2425,12 +2425,12 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var NOTE_GLOW_OUTSET = 5;           /* px the ring sits OUTSIDE the body */
   var NODE_DEFAULT_BG = "#2d4a63";    /* slate-blue, matches buildOptions default */
 
-  /*  The note glow's colour for a node: its resting outline tint
-      (lightenHex(bg, 0.25) — the exact stroke vis/drawDatabaseShapes use)
-      at NOTE_GLOW_ALPHA, so the halo reads as the outline bleeding outward. */
+  /*  The note glow's colour for a node: its outline tint, but pushed a step
+      lighter than the resting outline (lightenHex 0.45 vs the outline's 0.25)
+      so the halo reads as a brighter version of the outline bleeding outward. */
   function noteGlowColor(n) {
     var bg = nodeBackgroundColor(n) || NODE_DEFAULT_BG;
-    return hexToRgba(lightenHex(bg, 0.25), NOTE_GLOW_ALPHA);
+    return hexToRgba(lightenHex(bg, 0.45), NOTE_GLOW_ALPHA);
   }
 
   function hexToRgba(hex, alpha) {
