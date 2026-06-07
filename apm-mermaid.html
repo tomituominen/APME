@@ -714,14 +714,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
           looking cramped (the global node margin is 24). */
       margin: 40,
       widthConstraint: { minimum: 90, maximum: 220 },
-      borderWidth: 4,
-      borderWidthSelected: 6,
-      color: {
-        background: MASTER_COLOUR,
-        border: "#d6685f",
-        highlight: { background: "#c45258", border: "#fff" },
-        hover: { background: "#bd4b51", border: "#e29086" }
-      },
+      /*  Use the same colour treatment as every other node
+          (colorObjectFromHex) so the master's border — and especially its
+          SELECTION outline — matches the rest: a lightened shade of the
+          fill at the global borderWidth 3 / borderWidthSelected 5, rather
+          than the old bespoke white-on-select border. The master stays
+          distinct through its red fill, circle shape, size and aura. */
+      color: colorObjectFromHex(MASTER_COLOUR),
       font: { color: "#ffffff" },
       _bg: MASTER_COLOUR
     };
