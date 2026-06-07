@@ -2442,15 +2442,21 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
           keeps the ring the same distance outside the body on all shapes. */
       function buildOutline() {
         if (n._db) {
-          var w = v.shape.width, h = v.shape.height;
-          var cap = Math.min(DB_CAP, h / 2 - 1);
-          var L = cx - w / 2 - O, R = cx + w / 2 + O;
-          var T = cy - h / 2 - O, B = cy + h / 2 + O;
-          var rx = (w + 2 * O) / 2, cp = cap + O;
+          /*  The cylinder is drawn (drawDatabaseShapes) from the bounding
+              box, which differs from shape.width/height — so build the glow
+              from the SAME bbox + outset, or it won't line up. */
+          var bb = nodeBBox(n.id);
+          if (!bb) return;
+          var bcx = (bb.left + bb.right) / 2;
+          var bw = bb.right - bb.left, bh = bb.bottom - bb.top;
+          var cap = Math.min(DB_CAP, bh / 2 - 1);
+          var L = bb.left - O, R = bb.right + O;
+          var T = bb.top - O, B = bb.bottom + O;
+          var rx = (bw + 2 * O) / 2, cp = cap + O;
           ctx.beginPath();
-          ctx.ellipse(cx, T + cp, rx, cp, 0, Math.PI, 2 * Math.PI);  /* top rim, upper half */
+          ctx.ellipse(bcx, T + cp, rx, cp, 0, Math.PI, 2 * Math.PI);  /* top rim, upper half */
           ctx.lineTo(R, B - cp);                                      /* right wall */
-          ctx.ellipse(cx, B - cp, rx, cp, 0, 0, Math.PI);            /* bottom front arc */
+          ctx.ellipse(bcx, B - cp, rx, cp, 0, 0, Math.PI);           /* bottom front arc */
           ctx.closePath();                                            /* left wall */
         } else if (n.shape === "circle") {
           var r = (v.shape.radius || Math.min(v.shape.width, v.shape.height) / 2) + O;
