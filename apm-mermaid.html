@@ -2395,8 +2395,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       over the solid core and only the blurred halo shows around the
       silhouette — works uniformly on box, circle and cylinder. Amber
       keeps it distinct from the red master aura and the selection border. */
-  var NOTE_GLOW_COLOR = "rgba(232, 195, 74, 0.85)"; /* amber */
-  var NOTE_GLOW_BLUR  = 18;           /* screen px of halo spread */
+  var NOTE_GLOW_COLOR = "rgba(255, 255, 255, 0.9)"; /* white */
+  var NOTE_GLOW_BLUR  = 14;           /* screen px of halo spread */
+  var NOTE_GLOW_RING  = 3;            /* screen px of the crisp ring stroke */
+  var NOTE_GLOW_PASSES = 2;           /* stroke repeats to intensify the glow */
   var NODE_DEFAULT_BG = "#2d4a63";    /* slate-blue, matches buildOptions default */
 
   function darkenHex(hex, amount) {
@@ -2431,26 +2433,38 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       if (w <= 0 || h <= 0) return;
       var cx = (left + right) / 2, cy = (top + bottom) / 2;
 
+      /*  STROKE (not fill) the node's outline with a white, shadow-blurred
+          line. Stroke brightness is independent of the shape's area, so
+          box, circle and cylinder all get an identical crisp ring + soft
+          glow — a filled silhouette instead looked bright on the small box
+          but washed-out on the larger circle/cylinder. The node (vis for
+          box/circle, our pass for the cylinder) paints over the inner half
+          of the stroke, leaving the outer ring + halo. */
+      function buildOutline() {
+        if (n._db) {
+          var cap = Math.min(DB_CAP, h / 2 - 1), rx = w / 2;
+          ctx.beginPath();
+          ctx.ellipse(cx, top + cap, rx, cap, 0, Math.PI, 2 * Math.PI);  /* top rim, upper half */
+          ctx.lineTo(right, bottom - cap);                                /* right wall */
+          ctx.ellipse(cx, bottom - cap, rx, cap, 0, 0, Math.PI);          /* bottom front arc */
+          ctx.closePath();                                                /* left wall */
+        } else if (n.shape === "circle") {
+          ctx.beginPath();
+          ctx.arc(cx, cy, Math.min(w, h) / 2, 0, 2 * Math.PI);
+        } else {
+          roundedRectPath(ctx, left, top, w, h, NODE_CORNER_RADIUS);
+        }
+      }
+
       ctx.save();
+      ctx.strokeStyle = NOTE_GLOW_COLOR;
       ctx.shadowColor = NOTE_GLOW_COLOR;
       ctx.shadowBlur = NOTE_GLOW_BLUR / scale;
-      ctx.fillStyle = NOTE_GLOW_COLOR;   /* core is hidden by the node on top */
-      if (n._db) {
-        /* Cylinder silhouette: wall rect + both cap ellipses. */
-        var cap = Math.min(DB_CAP, h / 2 - 1), rx = w / 2;
-        ctx.beginPath();
-        ctx.rect(left, top + cap, w, (bottom - cap) - (top + cap));
-        ctx.ellipse(cx, top + cap, rx, cap, 0, 0, 2 * Math.PI);
-        ctx.ellipse(cx, bottom - cap, rx, cap, 0, 0, 2 * Math.PI);
-        ctx.fill();
-      } else if (n.shape === "circle") {
-        var r = Math.min(w, h) / 2;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-        ctx.fill();
-      } else {
-        roundedRectPath(ctx, left, top, w, h, NODE_CORNER_RADIUS);
-        ctx.fill();
+      ctx.lineWidth = NOTE_GLOW_RING / scale;
+      ctx.lineJoin = "round";
+      for (var p = 0; p < NOTE_GLOW_PASSES; p++) {
+        buildOutline();
+        ctx.stroke();
       }
       ctx.restore();
     });
