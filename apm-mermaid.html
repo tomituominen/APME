@@ -2096,6 +2096,17 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     ctx.closePath();
   }
 
+  /*  The shared "lit from above" overlay gradient — light at the top,
+      transparent in the middle, dark at the bottom. Used by both the box
+      shine pass and the database cylinder so every shape shades the same. */
+  function nodeShineGradient(ctx, topY, bottomY) {
+    var grad = ctx.createLinearGradient(0, topY, 0, bottomY);
+    grad.addColorStop(0,   "rgba(255, 255, 255, 0.10)");
+    grad.addColorStop(0.5, "rgba(255, 255, 255, 0)");
+    grad.addColorStop(1,   "rgba(0, 0, 0, 0.16)");
+    return grad;
+  }
+
   function drawNodeShinePass(ctx) {
     if (!ctx || !network) return;
     nodes.forEach(function (n) {
@@ -2122,11 +2133,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       ctx.clip();
       /*  Vertical gradient — light at top, transparent in the middle,
           dark at the bottom. Low alpha so it tints rather than recolours. */
-      var grad = ctx.createLinearGradient(0, y, 0, y + h);
-      grad.addColorStop(0,   "rgba(255, 255, 255, 0.10)");
-      grad.addColorStop(0.5, "rgba(255, 255, 255, 0)");
-      grad.addColorStop(1,   "rgba(0, 0, 0, 0.16)");
-      ctx.fillStyle = grad;
+      ctx.fillStyle = nodeShineGradient(ctx, y, y + h);
       ctx.fillRect(x, y, w, h);
       /*  Crisp 1 px top-edge highlight — reads as a bevelled top ridge. */
       ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
@@ -2174,11 +2181,28 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       ctx.beginPath();
       ctx.ellipse(cx, top + cap, rx, cap, 0, 0, 2 * Math.PI);
       ctx.fill();
-      /* Lighter lid on top for a 3-D rim. */
+
+      /*  Same "lit from above" gradient the box gets (drawNodeShinePass),
+          clipped to the cylinder silhouette (the union of the wall rect +
+          both cap ellipses) so the cylinder shades identically to a box.
+          A touch of extra lightening on the top rim keeps the lid read. */
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(left, top + cap, w, (bottom - cap) - (top + cap));
+      ctx.ellipse(cx, top + cap, rx, cap, 0, 0, 2 * Math.PI);
+      ctx.ellipse(cx, bottom - cap, rx, cap, 0, 0, 2 * Math.PI);
+      ctx.clip();
+      ctx.fillStyle = nodeShineGradient(ctx, top, bottom);
+      ctx.fillRect(left, top, w, h);
+      ctx.restore();
+      /* Subtle lid sheen so the top rim still reads as the open end. */
+      ctx.save();
+      ctx.globalAlpha = 0.18;
       ctx.fillStyle = lidFill;
       ctx.beginPath();
       ctx.ellipse(cx, top + cap, rx, cap, 0, 0, 2 * Math.PI);
       ctx.fill();
+      ctx.restore();
 
       /* Outline: side walls, bottom front arc, full top rim. */
       ctx.strokeStyle = stroke;
