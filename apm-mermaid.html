@@ -47,8 +47,7 @@
     align-items: center;
     gap: 8px;
     padding: 8px 14px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--border);
+    background: transparent;
     flex: 0 0 auto;
   }
   #toolbar .brand {
@@ -402,8 +401,6 @@
     <button id="btn-new" title="New graph (clear the canvas)">New</button>
     <button id="btn-open" title="Open graph (load a Mermaid .md/.mmd file)">Open</button>
     <button id="btn-save" title="Save graph (download as .md with a Mermaid code block)">Save</button>
-    <span class="spacer"></span>
-    <span class="hint">Keyboard-driven editor. See shortcuts at the bottom.</span>
     <input id="file-input" type="file" accept=".md,.mmd,.mermaid,text/markdown,text/plain">
   </div>
   <div id="canvas-wrap">
