@@ -1215,7 +1215,6 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var DB_CAP = 16;          /* elliptical cap (lid / bottom) half-height */
   var DB_PAD = 8;           /* gap between the cap and the text */
   var DB_MAX_WIDTH = 240;   /* wrap width — keeps cylinders from going too wide */
-  var DB_ACCENT = "#e85a4f";
   var DB_TEXT_DROP = 6;     /* nudge label below bbox centre into the can body */
   var NODE_FONT_FACE = "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
 
@@ -2159,7 +2158,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       var bg = nodeBackgroundColor(n) || NODE_DEFAULT_BG;
       var lidFill = lightenHex(bg, 0.16);
       var isSel = !!sel[n.id];
-      var stroke = isSel ? DB_ACCENT : darkenHex(bg, 0.38);
+      /*  Match the box/circle border exactly: a lightened shade of the
+          fill (colorObjectFromHex uses 0.25, and 0.45 for the selected
+          highlight), with the same borderWidth 3 / borderWidthSelected 5. */
+      var stroke = isSel ? lightenHex(bg, 0.45) : lightenHex(bg, 0.25);
+      var strokeW = isSel ? 5 : 3;
       ctx.save();
 
       /* Fill the silhouette: wall rect + bottom ellipse + top ellipse. */
@@ -2179,7 +2182,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
       /* Outline: side walls, bottom front arc, full top rim. */
       ctx.strokeStyle = stroke;
-      ctx.lineWidth = isSel ? 4 : 2.5;
+      ctx.lineWidth = strokeW;
       ctx.lineJoin = "round";
       ctx.beginPath();
       ctx.moveTo(left, top + cap);  ctx.lineTo(left, bottom - cap);
