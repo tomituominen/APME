@@ -1237,15 +1237,27 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     };
   }
 
+  /*  A circle inscribes its label. vis-network only horizontally CENTRES a
+      circle's text when a minimum width forces a fixed-width (centre-aligned)
+      label box; without one, a very short label (1–2 chars) yields a
+      height-driven circle whose narrow label box is left-aligned, so the text
+      lands ~8px left of centre (the master dodges this via its own minimum).
+      A small minimum makes such tiny circles width-driven — hence centred —
+      while any label wider than it is unaffected. */
+  var CIRCLE_MIN_WIDTH = 34;
+
   /*  vis-node props to (re)style a node as a plain box or circle, undoing
-      any database transparency. */
+      any database transparency. Box pins minimum back to 1 so a circle's
+      minimum doesn't linger through vis's option merge on a shape switch. */
   function plainVisProps(shape) {
+    var isCircle = (shape === "circle");
     var base = {
-      shape: (shape === "circle") ? "circle" : "box",
+      shape: isCircle ? "circle" : "box",
       _db: false,
       shadow: { enabled: true, color: "rgba(0,0,0,0.45)", size: 10, x: 0, y: 4 },
-      widthConstraint: { maximum: 460 },
-      margin: (shape === "circle") ? 34 : 24
+      widthConstraint: isCircle ? { minimum: CIRCLE_MIN_WIDTH, maximum: 460 }
+                                : { minimum: 1, maximum: 460 },
+      margin: isCircle ? 34 : 24
     };
     return base;
   }
@@ -3305,8 +3317,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         var dp = dbVisProps();
         for (var dk in dp) if (Object.prototype.hasOwnProperty.call(dp, dk)) out2[dk] = dp[dk];
       } else if (n.shape === "circle") {
-        out2.shape = "circle";
-        out2.margin = 34;
+        var cp = plainVisProps("circle");
+        for (var ck in cp) if (Object.prototype.hasOwnProperty.call(cp, ck)) out2[ck] = cp[ck];
       }
       return out2;
     });
