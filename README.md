@@ -39,6 +39,7 @@ open apm-mermaid.html
 | **D**           | Flip layout direction (LR ↔ RL)                 |
 | **A**           | Auto layout — un-pin everything, reflow, and fit |
 | **F**           | Fit the whole graph to the viewport             |
+| **⌘/Ctrl+S**    | Save (hold **Shift** for Save As)               |
 | **Esc**         | Cancel any inline editor or gesture             |
 
 ### Mouse gestures
@@ -112,8 +113,16 @@ pasting from `mermaid.live` or hand-written diagrams.
 | Button       | What it does                                                |
 | ------------ | ----------------------------------------------------------- |
 | **New**      | Clear the canvas                                            |
-| **Open**     | Load a Mermaid `.md` / `.mmd` / `.mermaid` file             |
-| **Save**     | Download the graph as `.md` with the Mermaid block          |
+| **Open**     | Open a Mermaid `.md` / `.mmd` / `.mermaid` file             |
+| **Save**     | Save the graph (also **⌘/Ctrl+S**); **Shift** = Save As     |
+
+Save and Open use the browser's native file dialogs via the **File System
+Access API** where available (Chromium served over `localhost`/HTTPS): you
+pick the name and location, and a later **Save** overwrites the same file in
+place. Where that API isn't available — Firefox, Safari, or the page opened
+straight off `file://` — Open falls back to the OS file picker and Save
+prompts for a filename, then downloads the `.md` (the name is remembered for
+next time).
 
 Fit and auto-layout are keyboard-only: **F** fits the graph to the
 viewport, **A** runs auto layout (un-pin everything, reflow, fit).

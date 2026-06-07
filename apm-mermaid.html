@@ -399,8 +399,8 @@
   <div id="toolbar">
     <span class="brand">Attack Path Mapper</span>
     <button id="btn-new" title="New graph (clear the canvas)">New</button>
-    <button id="btn-open" title="Open graph (load a Mermaid .md/.mmd file)">Open</button>
-    <button id="btn-save" title="Save graph (download as .md with a Mermaid code block)">Save</button>
+    <button id="btn-open" title="Open graph — pick a Mermaid .md/.mmd file">Open</button>
+    <button id="btn-save" title="Save graph (⌘/Ctrl+S) — choose a filename; overwrites the opened file where supported. Shift adds Save As.">Save</button>
     <input id="file-input" type="file" accept=".md,.mmd,.mermaid,text/markdown,text/plain">
   </div>
   <div id="canvas-wrap">
@@ -518,6 +518,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       path flows to the right. Toggled by the D key. */
   var layoutDirection = "RL";
   var lastFilename = "attack-path.md";
+  /*  Live handle to the file opened/saved via the File System Access API
+      (Chromium, secure context). When set, Save overwrites that file in place;
+      otherwise Save prompts/picks a new one. Reset by New and by a fallback
+      (download-based) open, which can't write back. */
+  var fileHandle = null;
 
   /*  Edge widths shared between vis-network's straight-edge renderer and
       our custom Bezier renderer for bent edges. Keeping them in one place
@@ -938,7 +943,14 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   }
 
   function onInlineEditorKey(e) {
-    if (e.key === "Enter") {
+    if ((e.key === "s" || e.key === "S") && (e.metaKey || e.ctrlKey) && !e.altKey) {
+      /* Commit the label first, then save — the global handler can't see this
+         because the editor stops propagation below. */
+      e.preventDefault();
+      e.stopPropagation();
+      commitInlineEditor();
+      saveMermaid({ saveAs: e.shiftKey });
+    } else if (e.key === "Enter") {
       e.preventDefault();
       e.stopPropagation();
       commitInlineEditor();
@@ -2974,9 +2986,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   /* ===========================================================================
      SECTION 13 · GRAPH LIFECYCLE & MERMAID I/O
-     New/clear, plus the file format: downloadMermaid() serialises to a fenced
-     Mermaid block with the APM-DATA comment; parseMermaidBody()/loadMermaid()
-     read it back (also accepting plain hand-written Mermaid).
+     New/clear, plus the file format: exportMermaid() serialises to a fenced
+     Mermaid block with the APM-DATA comment; saveMermaid()/openGraph() handle
+     the file dialogs (File System Access API with a download/file-input
+     fallback); parseMermaidBody()/loadMermaid() read it back (also accepting
+     plain hand-written Mermaid).
      =========================================================================== */
 
   function clearGraph(skipConfirm) {
@@ -2986,6 +3000,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     nodes.clear();
     edges.clear();
     nextNodeId = 1;
+    fileHandle = null;   /* a new graph isn't tied to the previously-open file */
     updateEmptyHint();
     return true;
   }
@@ -3204,29 +3219,136 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     return String(s).replace(/([\\`*_{}\[\]()#+\-.!|<>])/g, "\\$1");
   }
 
-  function downloadMermaid() {
+  /*  True when the File System Access API is usable for native open/save
+      dialogs (Chromium in a secure context). The functions also exist on
+      file:// pages but THROW when called there, so every call below is wrapped
+      in try/catch that falls back gracefully. */
+  function supportsFSA() {
+    return typeof window.showSaveFilePicker === "function" &&
+           typeof window.showOpenFilePicker === "function";
+  }
+
+  var FSA_FILE_TYPES = [{
+    description: "Mermaid diagram (Markdown)",
+    accept: { "text/markdown": [".md", ".mmd", ".mermaid"] }
+  }];
+
+  /*  Normalise a filename for saving: drop legacy .dot/.gv, ensure a Mermaid
+      Markdown extension. */
+  function normaliseSaveName(name) {
+    var n = String(name || "attack-path.md").trim() || "attack-path.md";
+    n = n.replace(/\.(dot|gv)$/i, ".md");
+    if (!/\.(md|mmd|mermaid)$/i.test(n)) n += ".md";
+    return n;
+  }
+
+  /*  Ensure we hold read-write permission on a handle (one opened read-only
+      via the open picker needs an upgrade before we can write back). */
+  function ensureWritable(handle) {
+    if (!handle || typeof handle.queryPermission !== "function") return Promise.resolve(true);
+    var opts = { mode: "readwrite" };
+    return handle.queryPermission(opts).then(function (state) {
+      if (state === "granted") return true;
+      return handle.requestPermission(opts).then(function (s) { return s === "granted"; });
+    }).catch(function () { return false; });
+  }
+
+  /*  Save the current graph. Layered:
+        1. File System Access API — overwrite the open file in place, or (no
+           handle / Save As) show a native Save dialog to pick name + location.
+        2. Fallback (Firefox/Safari/file://) — prompt for a filename, then
+           download. The chosen name is remembered for next time. */
+  function saveMermaid(opts) {
     if (nodes.length === 0 && edges.length === 0) {
       flashStatus("Nothing to save.");
       return;
     }
+    var saveAs = !!(opts && opts.saveAs);
     var md = exportMermaid();
+
+    if (supportsFSA()) {
+      (function () {
+        var handle = saveAs ? null : fileHandle;
+        Promise.resolve()
+          .then(function () { return handle ? ensureWritable(handle) : true; })
+          .then(function (ok) {
+            if (handle && !ok) handle = null;        /* lost permission → pick anew */
+            if (handle) return handle;
+            return window.showSaveFilePicker({
+              suggestedName: normaliseSaveName(lastFilename),
+              types: FSA_FILE_TYPES
+            });
+          })
+          .then(function (h) {
+            return h.createWritable().then(function (w) {
+              return w.write(md).then(function () { return w.close(); });
+            }).then(function () { return h; });
+          })
+          .then(function (h) {
+            fileHandle = h;
+            lastFilename = h.name || lastFilename;
+            flashStatus("Saved " + lastFilename + " (" + nodes.length + " nodes, " + edges.length + " edges)");
+          })
+          .catch(function (err) {
+            if (err && err.name === "AbortError") { flashStatus("Save cancelled."); return; }
+            /* API not usable here (e.g. file://) → fall back to a download. */
+            fileHandle = null;
+            downloadMermaidFallback(md);
+          });
+      })();
+      return;
+    }
+    downloadMermaidFallback(md);
+  }
+
+  /*  Filename-prompt + Blob-download save for environments without the File
+      System Access API. */
+  function downloadMermaidFallback(md) {
+    var suggested = normaliseSaveName(lastFilename);
+    var name = window.prompt("Save as — filename:", suggested);
+    if (name == null) { flashStatus("Save cancelled."); return; }
+    name = normaliseSaveName(name);
+    lastFilename = name;
     var blob = new Blob([md], { type: "text/markdown" });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url;
-    a.download = lastFilename || "attack-path.md";
-    /* Normalise legacy `.dot` filenames into `.md` so re-saves don't keep
-       a misleading extension after the format switch. */
-    if (/\.(dot|gv)$/i.test(a.download)) {
-      a.download = a.download.replace(/\.(dot|gv)$/i, ".md");
-    }
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     setTimeout(function () {
       URL.revokeObjectURL(url);
       a.parentNode && a.parentNode.removeChild(a);
     }, 0);
-    flashStatus("Saved " + a.download + " (" + nodes.length + " nodes, " + edges.length + " edges)");
+    flashStatus("Saved " + name + " (" + nodes.length + " nodes, " + edges.length + " edges)");
+  }
+
+  /*  Open a graph. Uses the File System Access API's native picker when
+      available (and remembers the handle so Save writes back to the same
+      file); otherwise falls back to the hidden <input type=file>. */
+  function openGraph() {
+    if (supportsFSA()) {
+      window.showOpenFilePicker({ multiple: false, types: FSA_FILE_TYPES })
+        .then(function (handles) {
+          var h = handles && handles[0];
+          if (!h) return;
+          return h.getFile().then(function (file) {
+            return file.text().then(function (text) {
+              loadMermaid(text, file.name);   /* clears the graph (and the old handle) */
+              fileHandle = h;                  /* …so adopt the new handle AFTER */
+            });
+          });
+        })
+        .catch(function (err) {
+          if (err && err.name === "AbortError") return;   /* user cancelled */
+          /* API not usable here → fall back to the file input. */
+          var input = document.getElementById("file-input");
+          if (input) input.click();
+        });
+      return;
+    }
+    var input = document.getElementById("file-input");
+    if (input) input.click();
   }
 
   /* ---------- Mermaid import ---------- */
@@ -3526,6 +3648,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   function onFileChosen(ev) {
     var file = ev.target.files && ev.target.files[0];
     if (!file) return;
+    /*  A download-opened file has no writable handle — Save will prompt for a
+        name rather than silently overwrite the wrong file. */
+    fileHandle = null;
     var reader = new FileReader();
     reader.onload = function () { loadMermaid(String(reader.result), file.name); };
     reader.onerror = function () { window.alert("Could not read file: " + reader.error); };
@@ -3541,6 +3666,16 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
      =========================================================================== */
 
   function onKeyDown(e) {
+    /*  Cmd/Ctrl+S → Save (Shift = Save As). Handled first, and regardless of
+        focus, so it always wins over the browser's "save page" dialog. (The
+        inline editor stops propagation on most keys, so it has its own
+        Cmd/Ctrl+S handler in onInlineEditorKey.) */
+    if ((e.key === "s" || e.key === "S") && (e.metaKey || e.ctrlKey) && !e.altKey) {
+      e.preventDefault();
+      saveMermaid({ saveAs: e.shiftKey });
+      return;
+    }
+
     var tag = document.activeElement && document.activeElement.tagName;
     var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
     /* Toolbar buttons keep focus after a click — don't let Enter/Space there
@@ -4194,10 +4329,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   window.addEventListener("DOMContentLoaded", function () {
     initNetwork();
     document.getElementById("btn-new").addEventListener("click", function () { clearGraph(false); });
-    document.getElementById("btn-open").addEventListener("click", function () {
-      document.getElementById("file-input").click();
-    });
-    document.getElementById("btn-save").addEventListener("click", downloadMermaid);
+    document.getElementById("btn-open").addEventListener("click", openGraph);
+    document.getElementById("btn-save").addEventListener("click", function () { saveMermaid(); });
     document.getElementById("file-input").addEventListener("change", onFileChosen);
     document.addEventListener("keydown", onKeyDown);
 
