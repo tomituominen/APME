@@ -1,6 +1,6 @@
 # Visual backlog
 
-Candidate visual / UX polish items for `apm-mermaid.html`. Each is
+Candidate visual / UX polish items for `apme.html`. Each is
 independent — pick any subset. Implementation notes are sized for the
 existing architecture (vis-network + custom `beforeDrawing` /
 `afterDrawing` canvas hooks; no build step).

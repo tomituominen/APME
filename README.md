@@ -1,4 +1,4 @@
-# Attack Path Mapper
+# Attack Path Map Editor
 
 A self-contained, single-file HTML5 tool for visualising and editing attack path
 maps. Opens directly in any modern browser — no install, no server, no internet
@@ -6,7 +6,7 @@ access needed at runtime. Saves and loads in **Mermaid** format, wrapped in a
 Markdown code block so committed files render as a diagram on GitHub.
 
 ```
-open apm-mermaid.html
+open apme.html
 ```
 
 ## What you get
@@ -139,8 +139,9 @@ viewport, **A** runs auto layout (un-pin everything, reflow, fit).
 ## File layout
 
 ```
-apm-mermaid.html   # the whole tool
+apme.html          # the whole tool
 README.md          # this file
+sample-graph.md    # example attack path map
 .gitignore
 ```
 
