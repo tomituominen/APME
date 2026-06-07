@@ -1815,13 +1815,6 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     }
   }
 
-  function edgeControlPointAbs(edge) {
-    if (!edge || !edge._bend) return null;
-    var ep = endpointPositions(edge);
-    if (!ep) return null;
-    return paramToAbs(ep.A, ep.B, edge._bend);
-  }
-
   function pointLineDistance(A, B, P) {
     var dx = B.x - A.x;
     var dy = B.y - A.y;
@@ -2561,18 +2554,6 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
   }
 
-  function darkenHex(hex, amount) {
-    var h = String(hex).replace("#", "");
-    if (h.length !== 6) return hex;
-    var r = parseInt(h.slice(0, 2), 16);
-    var g = parseInt(h.slice(2, 4), 16);
-    var b = parseInt(h.slice(4, 6), 16);
-    var k = 1 - amount;
-    function clamp(c) { return Math.min(255, Math.max(0, Math.round(c * k))); }
-    function hx(n) { var s = n.toString(16); return s.length === 1 ? "0" + s : s; }
-    return "#" + hx(clamp(r)) + hx(clamp(g)) + hx(clamp(b));
-  }
-
   /*  Paint the note glow around every noted node, tinted to the node's own
       outline colour. Runs in afterDrawing (ON TOP of the nodes) — not behind
       them — because the
@@ -3042,13 +3023,6 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       left alone. */
   function stripNoteMarker(label) {
     return String(label).replace(/\s*(?:[①-⓿]|\(\d+\))\s*$/, "");
-  }
-
-  /*  Mermaid IDs must match [A-Za-z0-9_-]. Our UUIDs already comply; this
-      is a defensive sanitiser in case a hand-edited file feeds something
-      weird in. (Not used on export; we trust our own IDs.) */
-  function mermaidSafeId(s) {
-    return String(s).replace(/[^A-Za-z0-9_-]/g, "_") || "n";
   }
 
   /*  Mermaid label syntax differs by node shape:
