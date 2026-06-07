@@ -46,7 +46,9 @@ open apm-mermaid.html
 - **Drag a line** — bend it (smooth quadratic Bezier; the click point follows
   the cursor).
 - **Double-click a line** — toggle solid / dotted.
-- **Right-click a node** — colour swatches + **Note** action.
+- **Right-click a node** — colour swatches, a shape toggle (box / database
+  cylinder / circle), and the **Note** action. (The master's shape is fixed,
+  so its picker omits the shape row.)
 - **Right-click a line** — open the edge label editor.
 - **Drag a node** — "pin" it; the auto-layout will leave that node alone
   thereafter (until auto layout — the **A** key — un-pins everything).
@@ -73,7 +75,9 @@ flowchart RL
 
 What's standard Mermaid vs. APM-specific:
 
-- **Mermaid-native**: node shapes (`((label))` circle = master; `["label"]` box),
+- **Mermaid-native**: node shapes — `["label"]` box, `[("label")]` database
+  cylinder, `(("label"))` circle (the master is always a circle, recorded by
+  id in `APM-DATA.master` so a regular circle isn't mistaken for it),
   edges (`---` solid, `-.-` dotted, `|"label"|` annotation), `style` directives
   for fill colours. Anything in the body renders identically in any Mermaid
   viewer (GitHub, mermaid.live, etc.).

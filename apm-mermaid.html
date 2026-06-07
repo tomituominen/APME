@@ -286,6 +286,35 @@
     background: rgba(255, 255, 255, 0.12);
     border-color: rgba(255, 255, 255, 0.25);
   }
+  /*  Shape row — three equal buttons (Box / Database / Circle) spanning
+      the picker width, sitting above the Note action. */
+  #color-picker .shape-row {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  #color-picker .shape-row button.shape-action {
+    flex: 1 1 0;
+    height: 34px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: #ecf0f6;
+    cursor: pointer;
+    font: inherit;
+    font-size: 16px;
+    line-height: 1;
+  }
+  #color-picker .shape-row button.shape-action:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+  #color-picker .shape-row button.shape-action.active {
+    border-color: #fff;
+    box-shadow: 0 0 0 2px var(--accent);
+  }
   /* === Note editor === */
   #note-editor {
     position: absolute;
@@ -674,6 +703,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var MASTER_COLOUR = "#b3434a";
   function masterNodeProps() {
     return {
+      /*  `_master` is the canonical master marker — NOT the circle shape.
+          (Regular nodes may now also be circles, so shape can't identify
+          the master.) The master defaults to a circle but is found
+          everywhere via isMaster(). */
+      _master: true,
       shape: "circle",
       /*  Extra padding between the label and the circle's edge — a circle
           inscribes its text, so a roomy margin keeps the master from
@@ -691,6 +725,15 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       font: { color: "#ffffff" },
       _bg: MASTER_COLOUR
     };
+  }
+
+  /*  The master node is identified by the _master flag, not by its shape.
+      findMaster() returns the master node object (or null). */
+  function isMaster(n) { return !!(n && n._master); }
+  function findMaster() {
+    var all = nodes.get();
+    for (var i = 0; i < all.length; i++) if (all[i]._master) return all[i];
+    return null;
   }
 
   function applyMasterIfFirst(props) {
@@ -1173,6 +1216,24 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     }
   }
 
+  /*  Set a regular node's shape (box / database / circle). The master's
+      shape is fixed (always a circle) so it's ignored here. "box" is the
+      default; circle and database give a wider, label-inside footprint, so
+      we nudge the layout to re-measure widths and keep spacing sane. */
+  function setNodeShape(nodeId, shape) {
+    var n = nodes.get(nodeId);
+    if (!n || n._master) return;
+    var allowed = { box: 1, database: 1, circle: 1 };
+    if (!allowed[shape]) return;
+    var update = { id: nodeId, shape: shape };
+    /*  Database/circle inscribe their label; give them the same roomy
+        margin the master uses so the text isn't cramped. Box reverts to
+        the global default margin. */
+    update.margin = (shape === "box") ? 24 : 34;
+    nodes.update(update);
+    if (network) network.redraw();
+  }
+
   /* Read the background colour stored on a node (handles both our _bg shortcut
      and the standard color.background path used by vis-network and by Mermaid import). */
   function nodeBackgroundColor(node) {
@@ -1255,6 +1316,33 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       });
       colorPicker.appendChild(sw);
     });
+    /*  Shape row: Box / Database / Circle. Sets the node's shape; the
+        master is excluded (its shape is fixed to circle). */
+    var shapeRow = document.createElement("div");
+    shapeRow.className = "shape-row";
+    [
+      { shape: "box",      glyph: "▭", title: "Box" },
+      { shape: "database", glyph: "⛁", title: "Database (cylinder)" },
+      { shape: "circle",   glyph: "◯", title: "Circle" }
+    ].forEach(function (s) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "shape-action";
+      btn.textContent = s.glyph;
+      btn.title = s.title;
+      btn.setAttribute("data-shape", s.shape);
+      btn.setAttribute("aria-label", s.title);
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (colorPickerNodeId) {
+          setNodeShape(colorPickerNodeId, s.shape);
+          flashStatus("Shape: " + s.title);
+        }
+        hideColorPicker();
+      });
+      shapeRow.appendChild(btn);
+    });
+    colorPicker.appendChild(shapeRow);
     /*  Note action: closes the picker and opens the note editor anchored to
         the picker's current screen position so the editor appears where the
         user was already looking. */
@@ -1282,8 +1370,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     colorPickerNodeId = nodeId;
     /* Reveal first so we can measure. */
     cp.classList.remove("hidden");
+    var nd = nodes.get(nodeId);
     /* Highlight the swatch matching the current colour. */
-    var current = nodeBackgroundColor(nodes.get(nodeId));
+    var current = nodeBackgroundColor(nd);
     var buttons = cp.querySelectorAll("button.swatch");
     for (var i = 0; i < buttons.length; i++) {
       var b = buttons[i];
@@ -1293,7 +1382,24 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         b.classList.remove("active");
       }
     }
-    positionPopupAt(cp, clientX, clientY, { offset: 6, flip: true, fallbackW: 200, fallbackH: 200 });
+    /*  Shape row: hidden for the master (its shape is fixed); for regular
+        nodes, highlight the active shape. A node with no explicit shape is
+        a box by default. */
+    var shapeRow = cp.querySelector(".shape-row");
+    if (shapeRow) {
+      if (nd && nd._master) {
+        shapeRow.style.display = "none";
+      } else {
+        shapeRow.style.display = "";
+        var curShape = (nd && nd.shape) ? nd.shape : "box";
+        var sbtns = shapeRow.querySelectorAll("button.shape-action");
+        for (var j = 0; j < sbtns.length; j++) {
+          if (sbtns[j].getAttribute("data-shape") === curShape) sbtns[j].classList.add("active");
+          else sbtns[j].classList.remove("active");
+        }
+      }
+    }
+    positionPopupAt(cp, clientX, clientY, { offset: 6, flip: true, fallbackW: 200, fallbackH: 220 });
   }
 
   function hideColorPicker() {
@@ -1866,7 +1972,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   function drawMasterAura(ctx) {
     if (!ctx || !network) return;
-    var master = nodes.get().find(function (n) { return n.shape === "circle"; });
+    var master = findMaster();
     if (!master) return;
     var pos;
     try { pos = network.getPositions([master.id])[master.id]; } catch (err) {}
@@ -1927,7 +2033,12 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   function drawNodeShinePass(ctx) {
     if (!ctx || !network) return;
     nodes.forEach(function (n) {
-      if (!n || n.shape === "circle") return;
+      if (!n) return;
+      /*  The shine is a rounded-rectangle gradient — only meaningful on
+          box nodes. Skip circles and cylinders (any non-box shape). A
+          default node has no explicit shape (inherits the global "box"),
+          so an undefined shape counts as a box. */
+      if (n.shape && n.shape !== "box") return;
       var bb = nodeBBox(n.id);
       if (!bb) return;
       var inset = NODE_BORDER_WIDTH;
@@ -2521,8 +2632,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         an APM-DATA comment block. Mermaid (and GitHub's renderer) skip
         comment lines, so the diagram still renders correctly while our
         loader recovers full fidelity. */
-    var meta = { v: 1, dir: layoutDirection || "RL", pos: {}, bends: {}, notes: {} };
+    var meta = { v: 1, dir: layoutDirection || "RL", master: null, pos: {}, bends: {}, notes: {} };
     nodes.forEach(function (n) {
+      if (n._master) meta.master = n.id;   /* who's the master — see import */
       if (typeof n.x === "number" && typeof n.y === "number" && isFinite(n.x) && isFinite(n.y)) {
         meta.pos[n.id] = [Math.round(n.x), Math.round(n.y)];
       }
@@ -2577,11 +2689,16 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     nodes.forEach(function (n) {
       var label = n.label != null ? n.label : n.id;
       if (markerById[n.id]) label = label + " " + markerById[n.id];
+      var q = "\"" + escapeMermaid(label) + "\"";
       var shaped;
-      if (n.shape === "circle") {
-        shaped = n.id + "((\"" + escapeMermaid(label) + "\"))";
+      /*  Shape → Mermaid syntax. Master is always a circle. Regular nodes
+          may be circle (((…))), database/cylinder ([(…)]), or box ([…]). */
+      if (n._master || n.shape === "circle") {
+        shaped = n.id + "((" + q + "))";
+      } else if (n.shape === "database") {
+        shaped = n.id + "[(" + q + ")]";
       } else {
-        shaped = n.id + "[\"" + escapeMermaid(label) + "\"]";
+        shaped = n.id + "[" + q + "]";
       }
       body.push("  " + shaped);
       var bg = nodeBackgroundColor(n);
@@ -2713,11 +2830,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   }
 
   /*  Parse the Mermaid body into:
-        { dir, nodes: [{id, label, master}],
+        { dir, nodes: [{id, label, shape}],
           edges: [{from, to, label, dotted, idx}],
           styles: {id: {fill}} }
-      `idx` on edges is the position within its from→to bucket — used by
-      the metadata applier to match parallel edges to their stored bend. */
+      shape ∈ 'box' | 'circle' | 'database'. The master is resolved later
+      (loadMermaid) from APM-DATA's `master` id, falling back to the first
+      circle. `idx` on edges is the position within its from→to bucket —
+      used by the metadata applier to match parallel edges to their bend. */
   function parseMermaidBody(body) {
     var out = { dir: "RL", nodes: [], edges: [], styles: {} };
     /* Drop comment lines (`%% …`) entirely, including the APM-DATA one
@@ -2735,6 +2854,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
     var reDir    = /^\s*(?:flowchart|graph)\s+(LR|RL|TB|BT|TD)\s*$/i;
     var reCircle = new RegExp("^\\s*(" + ID + ")\\s*\\(\\(" + QSTR + "\\)\\)\\s*$");
+    /*  Database / cylinder: id[("label")] — must be tried before the
+        rectangle patterns, whose brackets it also starts with. */
+    var reDb     = new RegExp("^\\s*(" + ID + ")\\s*\\[\\(" + QSTR + "\\)\\]\\s*$");
     var reRectQ  = new RegExp("^\\s*(" + ID + ")\\s*\\[" + QSTR + "\\]\\s*$");
     var reRectU  = new RegExp("^\\s*(" + ID + ")\\s*\\[([^\\]]+)\\]\\s*$");
     /*  Edge: `from <connector> [|"label"|] to`. Connector is `---`/`--`
@@ -2749,7 +2871,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     var reStyle = new RegExp("^\\s*style\\s+(" + ID + ")\\s+(.+?)\\s*$", "i");
 
     var seen = {};
-    function noteNode(id, label, isCircle) {
+    function noteNode(id, label, shape) {
       if (seen[id]) {
         /*  Re-mention of an existing node — Mermaid allows declaring a
             label once, then referring to the bare id elsewhere. Upgrade
@@ -2757,17 +2879,17 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         var ex = out.nodes.find(function (n) { return n.id === id; });
         if (ex) {
           if (label != null && label.length > 0 && (!ex.label || ex.label === id)) ex.label = label;
-          if (isCircle) ex.master = true;
+          if (shape && shape !== "box") ex.shape = shape;
         }
         return;
       }
       seen[id] = true;
-      out.nodes.push({ id: id, label: label != null ? label : id, master: !!isCircle });
+      out.nodes.push({ id: id, label: label != null ? label : id, shape: shape || "box" });
     }
     function noteEdgeRef(id) {
       if (!seen[id]) {
         seen[id] = true;
-        out.nodes.push({ id: id, label: id, master: false });
+        out.nodes.push({ id: id, label: id, shape: "box" });
       }
     }
 
@@ -2780,10 +2902,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       if (m) { out.dir = m[1].toUpperCase(); continue; }
 
       m = reCircle.exec(line);
-      if (m) { noteNode(m[1], unescapeMermaid(m[2]), true); continue; }
+      if (m) { noteNode(m[1], unescapeMermaid(m[2]), "circle"); continue; }
+
+      m = reDb.exec(line);
+      if (m) { noteNode(m[1], unescapeMermaid(m[2]), "database"); continue; }
 
       m = reRectQ.exec(line);
-      if (m) { noteNode(m[1], unescapeMermaid(m[2]), false); continue; }
+      if (m) { noteNode(m[1], unescapeMermaid(m[2]), "box"); continue; }
 
       m = reEdge.exec(line);
       if (m) {
@@ -2815,7 +2940,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       }
 
       m = reRectU.exec(line);
-      if (m) { noteNode(m[1], unescapeMermaid(m[2]).trim(), false); continue; }
+      if (m) { noteNode(m[1], unescapeMermaid(m[2]).trim(), "box"); continue; }
 
       /* Unrecognised line — silently skip (Mermaid has many other
          directives like linkStyle, subgraph, etc. that we don't render). */
@@ -2840,22 +2965,33 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
     clearGraph(true);
 
-    /*  Promote whichever node was declared with circle shape `((label))`
-        to the master role. If none, the first declared node wins — same
-        convention the original DOT version used. */
+    /*  Decide which node is the master:
+          1) APM-DATA's `master` id (authoritative, written by this tool),
+          2) else the first node declared as a circle (back-compat with
+             files saved before per-node shapes, where circle == master),
+          3) else the first node.
+        Every other node keeps its own parsed shape (box / circle /
+        database), so regular circles no longer get mistaken for master. */
+    var masterId = null;
+    if (meta && meta.master && parsed.nodes.some(function (n) { return n.id === meta.master; })) {
+      masterId = meta.master;
+    } else {
+      var firstCircle = parsed.nodes.find(function (n) { return n.shape === "circle"; });
+      masterId = firstCircle ? firstCircle.id : (parsed.nodes[0] ? parsed.nodes[0].id : null);
+    }
+
     var nodeList = parsed.nodes.map(function (n) {
       var out2 = { id: n.id, label: n.label != null ? n.label : n.id };
-      if (n.master) {
+      if (n.id === masterId) {
+        /* Master styling overrides shape to circle + red. */
         var mp = masterNodeProps();
         for (var k in mp) if (Object.prototype.hasOwnProperty.call(mp, k)) out2[k] = mp[k];
+      } else if (n.shape && n.shape !== "box") {
+        /* Regular node keeps its declared shape (circle / database). */
+        out2.shape = n.shape;
       }
       return out2;
     });
-    var anyMaster = nodeList.some(function (n) { return n.shape === "circle"; });
-    if (!anyMaster && nodeList.length > 0) {
-      var mp2 = masterNodeProps();
-      for (var mk in mp2) if (Object.prototype.hasOwnProperty.call(mp2, mk)) nodeList[0][mk] = mp2[mk];
-    }
     var edgeList = parsed.edges.map(function (e) {
       return { from: e.from, to: e.to, label: e.label || undefined };
     });
@@ -3298,7 +3434,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         are seeded at level 0 AFTER BFS so they don't shadow real children. */
     var levels = {};
     var queue = [];
-    var master = allNodes.find(function (n) { return n.shape === "circle"; });
+    var master = allNodes.find(isMaster);
     if (master) { levels[master.id] = 0; queue.push(master.id); }
     allNodes.forEach(function (n) {
       if (levels[n.id] == null && inDegree[n.id] === 0) {
@@ -3397,7 +3533,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     /*  Anchor the layout to the master node's current position so the
         whole graph stays around it even if the user has dragged the master
         somewhere. With no master, anchor at (0, 0). */
-    var master = nodes.get().find(function (n) { return n.shape === "circle"; });
+    var master = findMaster();
     var anchorX = master && typeof master.x === "number" ? master.x : 0;
     var anchorY = master && typeof master.y === "number" ? master.y : 0;
 
@@ -3445,8 +3581,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         /*  Level 0: master first (visual anchor), then any other in-degree-0
             roots distributed evenly around the anchor.y. */
         movable.sort(function (a, b) {
-          if (a.shape === "circle" && b.shape !== "circle") return -1;
-          if (b.shape === "circle" && a.shape !== "circle") return 1;
+          if (a._master && !b._master) return -1;
+          if (b._master && !a._master) return 1;
           return 0;
         });
         var count0 = movable.length;
