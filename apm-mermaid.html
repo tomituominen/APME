@@ -1072,17 +1072,48 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       if (allEdges[i].to === forNodeId) parents.push(allEdges[i].from);
     }
 
+    /*  Seed the new node just below the selected one so the order hint below
+        slots it there; autoLayout re-stacks the column anyway. */
+    var selPos = null;
+    try { selPos = network.getPositions([forNodeId])[forNodeId]; } catch (e) {}
+    var sx = selPos && typeof selPos.x === "number" ? selPos.x : 0;
+    var sy = selPos && typeof selPos.y === "number" ? selPos.y : 0;
+
     var newId = newNodeId();
-    nodes.add({ id: newId, label: "", x: 0, y: 0 });
+    nodes.add({ id: newId, label: "", x: sx, y: sy + 1 });
     if (parents.length > 0) {
       edges.add(parents.map(function (p) { return { from: p, to: newId }; }));
     }
+    /*  Insert the new node directly BELOW the selected one within its column:
+        order every movable sibling by its current y, and give the new node a
+        key just past the selected node's — so it lands between the selected
+        node and the next sibling, pushing the rest down. Cleared right after
+        so general layout keeps its default ordering. */
+    _layoutOrderHint = buildInsertOrderHint(newId, sy);
     autoLayout();
+    _layoutOrderHint = null;
     try { network.selectNodes([newId]); } catch (e) {}
     trackSelection();
     ensureNodeVisible(newId);
     showInlineEditor(newId, { isNew: true });
     return newId;
+  }
+
+  /*  Order-key map for an Enter-insert: each existing movable node keeps its
+      current y as its key (preserving the visible top-to-bottom order); the
+      new node gets the selected node's y + 0.5 so it sorts immediately after
+      it but before the next sibling (which is a full SIBLING_STEP lower). */
+  function buildInsertOrderHint(newId, selY) {
+    var hint = {};
+    var positions = {};
+    try { positions = network.getPositions(); } catch (e) {}
+    nodes.forEach(function (n) {
+      if (n._pinned) return;   /* pinned nodes are excluded from layout anyway */
+      var p = positions[n.id];
+      hint[n.id] = p && typeof p.y === "number" ? p.y : 0;
+    });
+    hint[newId] = selY + 0.5;
+    return hint;
   }
 
   /* ---------- Arrow-key navigation ----------
@@ -3868,6 +3899,15 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var LAYOUT_ANIM_MS = 280;
   var _layoutAnimRaf = null;
   var _layoutTargets = null;          /* { id: {x, y} } when collecting */
+  /*  Transient { id: orderKey } map honoured by autoLayout when ordering
+      siblings within a column. Set by createSiblingNode so a freshly inserted
+      node lands directly below the selected one (rather than at the bottom of
+      its group); null the rest of the time, where stable sorts keep the
+      existing bucket order so general layout is unchanged. */
+  var _layoutOrderHint = null;
+  function orderKey(id) {
+    return (_layoutOrderHint && _layoutOrderHint[id] != null) ? _layoutOrderHint[id] : 0;
+  }
 
   function placeNode(id, x, y) {
     if (_layoutTargets) {
@@ -3977,7 +4017,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         movable.sort(function (a, b) {
           if (a._master && !b._master) return -1;
           if (b._master && !a._master) return 1;
-          return 0;
+          return orderKey(a.id) - orderKey(b.id);
         });
         var count0 = movable.length;
         var totalH0 = (count0 - 1) * SIBLING_STEP;
@@ -4029,6 +4069,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       sortedGroups.sort(function (a, b) { return a.centre - b.centre; });
       var lastBottom = -Infinity;
       sortedGroups.forEach(function (g) {
+        /*  Order siblings within the cluster. With no hint every key is 0, so
+            this stable sort is a no-op and the existing bucket order stands;
+            with a hint (Enter-insert) it slots the new node into place. */
+        g.ids.sort(function (id1, id2) { return orderKey(id1) - orderKey(id2); });
         var gCount = g.ids.length;
         var gHeight = (gCount - 1) * SIBLING_STEP;
         var idealTop = g.centre - gHeight / 2;
