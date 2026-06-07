@@ -675,6 +675,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   function masterNodeProps() {
     return {
       shape: "circle",
+      /*  Extra padding between the label and the circle's edge — a circle
+          inscribes its text, so a roomy margin keeps the master from
+          looking cramped (the global node margin is 24). */
+      margin: 40,
       widthConstraint: { minimum: 90, maximum: 220 },
       borderWidth: 4,
       borderWidthSelected: 6,
