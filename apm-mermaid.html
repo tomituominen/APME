@@ -2399,6 +2399,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var NOTE_GLOW_BLUR  = 14;           /* screen px of halo spread */
   var NOTE_GLOW_RING  = 3;            /* screen px of the crisp ring stroke */
   var NOTE_GLOW_PASSES = 2;           /* stroke repeats to intensify the glow */
+  var NOTE_GLOW_OUTSET = 5;           /* px the ring sits OUTSIDE the body */
   var NODE_DEFAULT_BG = "#2d4a63";    /* slate-blue, matches buildOptions default */
 
   function darkenHex(hex, amount) {
@@ -2424,35 +2425,40 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     var scale = 1;
     try { scale = network.getScale() || 1; } catch (e) {}
     if (!(scale > 0)) scale = 1;
+    var O = NOTE_GLOW_OUTSET;
     nodes.forEach(function (n) {
       if (!n || typeof n._note !== "string" || n._note.length === 0) return;
-      var bb = nodeBBox(n.id);
-      if (!bb) return;
-      var left = bb.left, right = bb.right, top = bb.top, bottom = bb.bottom;
-      var w = right - left, h = bottom - top;
-      if (w <= 0 || h <= 0) return;
-      var cx = (left + right) / 2, cy = (top + bottom) / 2;
+      var v;
+      try { v = network.body && network.body.nodes && network.body.nodes[n.id]; } catch (e) {}
+      if (!v || !v.shape || typeof v.x !== "number" || typeof v.y !== "number") return;
+      var cx = v.x, cy = v.y;
 
-      /*  STROKE (not fill) the node's outline with a white, shadow-blurred
-          line. Stroke brightness is independent of the shape's area, so
-          box, circle and cylinder all get an identical crisp ring + soft
-          glow — a filled silhouette instead looked bright on the small box
-          but washed-out on the larger circle/cylinder. The node (vis for
-          box/circle, our pass for the cylinder) paints over the inner half
-          of the stroke, leaving the outer ring + halo. */
+      /*  STROKE the node's outline (white, shadow-blurred) — stroke
+          brightness is area-independent, so every shape matches. Crucially
+          we use the BODY geometry (shape.width/height/radius centred on the
+          node), NOT the bounding box: vis's bbox includes the drop shadow
+          for boxes but not for circles, which is what made the ring sit
+          outside the box yet on the circle's edge. Adding a fixed OUTSET
+          keeps the ring the same distance outside the body on all shapes. */
       function buildOutline() {
         if (n._db) {
-          var cap = Math.min(DB_CAP, h / 2 - 1), rx = w / 2;
+          var w = v.shape.width, h = v.shape.height;
+          var cap = Math.min(DB_CAP, h / 2 - 1);
+          var L = cx - w / 2 - O, R = cx + w / 2 + O;
+          var T = cy - h / 2 - O, B = cy + h / 2 + O;
+          var rx = (w + 2 * O) / 2, cp = cap + O;
           ctx.beginPath();
-          ctx.ellipse(cx, top + cap, rx, cap, 0, Math.PI, 2 * Math.PI);  /* top rim, upper half */
-          ctx.lineTo(right, bottom - cap);                                /* right wall */
-          ctx.ellipse(cx, bottom - cap, rx, cap, 0, 0, Math.PI);          /* bottom front arc */
-          ctx.closePath();                                                /* left wall */
+          ctx.ellipse(cx, T + cp, rx, cp, 0, Math.PI, 2 * Math.PI);  /* top rim, upper half */
+          ctx.lineTo(R, B - cp);                                      /* right wall */
+          ctx.ellipse(cx, B - cp, rx, cp, 0, 0, Math.PI);            /* bottom front arc */
+          ctx.closePath();                                            /* left wall */
         } else if (n.shape === "circle") {
+          var r = (v.shape.radius || Math.min(v.shape.width, v.shape.height) / 2) + O;
           ctx.beginPath();
-          ctx.arc(cx, cy, Math.min(w, h) / 2, 0, 2 * Math.PI);
+          ctx.arc(cx, cy, r, 0, 2 * Math.PI);
         } else {
-          roundedRectPath(ctx, left, top, w, h, NODE_CORNER_RADIUS);
+          var bw = v.shape.width, bh = v.shape.height;
+          roundedRectPath(ctx, cx - bw / 2 - O, cy - bh / 2 - O, bw + 2 * O, bh + 2 * O, NODE_CORNER_RADIUS + O);
         }
       }
 
