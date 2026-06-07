@@ -83,6 +83,23 @@ What's standard Mermaid vs. APM-specific:
   the diagram renders correctly elsewhere; opening the file back in this tool
   restores full fidelity.
 
+### Notes on GitHub
+
+A node's hover note is also surfaced for readers who don't have the tool:
+
+- The noted node gets a footnote marker appended to its label (`Web server ①`).
+- A `click` directive links the node to its note anchor — this jumps to the
+  note in loose-security viewers (mermaid.live, VS Code, self-hosted docs).
+  GitHub sandboxes the diagram in an iframe and runs Mermaid in strict mode,
+  so the click is inert there — harmless, just not interactive.
+- A `## Notes` section below the diagram lists every note as plain Markdown,
+  keyed by the same marker. **This is always visible on GitHub**, so the note
+  text is never lost to readers.
+
+On re-import the tool reads notes from the authoritative `APM-DATA` block,
+strips the markers off the labels, and ignores the `click` lines and the
+`## Notes` section — so the round-trip stays lossless.
+
 The loader also accepts plain Mermaid (no Markdown wrapper) — useful for
 pasting from `mermaid.live` or hand-written diagrams.
 

@@ -2488,6 +2488,15 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       .replace(/&amp;/g, "&");
   }
 
+  /*  Strip a trailing footnote marker that export appended to a noted
+      node's label — a circled number (U+2460–U+24FF, ①..⓿ etc.) or the
+      "(n)" fallback, with the separating space. Only the very end of the
+      label is touched, so markers a user legitimately put mid-label are
+      left alone. */
+  function stripNoteMarker(label) {
+    return String(label).replace(/\s*(?:[①-⓿]|\(\d+\))\s*$/, "");
+  }
+
   /*  Mermaid IDs must match [A-Za-z0-9_-]. Our UUIDs already comply; this
       is a defensive sanitiser in case a hand-edited file feeds something
       weird in. (Not used on export; we trust our own IDs.) */
@@ -2533,15 +2542,37 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       }
     });
 
+    /*  Assign a footnote marker (①②③…) to every node that has a note, in
+        node iteration order. The marker is appended to the node's label in
+        the rendered diagram and used as the heading of the matching entry
+        in the "Notes" section below the diagram — so the note text is
+        VISIBLE on GitHub (which ignores the APM-DATA comment and sandboxes
+        away Mermaid click links). */
+    var noteList = [];   /* [{ id, marker, label, text }] */
+    nodes.forEach(function (n) {
+      if (typeof n._note === "string" && n._note.length > 0) {
+        noteList.push({
+          id: n.id,
+          marker: noteMarker(noteList.length + 1),
+          label: n.label != null ? n.label : n.id,
+          text: n._note
+        });
+      }
+    });
+    var markerById = {};
+    noteList.forEach(function (e) { markerById[e.id] = e.marker; });
+
     var dir = (layoutDirection === "LR" ? "LR" : "RL");
     var body = [];
     body.push("%% APM-DATA: " + JSON.stringify(meta));
     body.push("flowchart " + dir);
 
-    /* Nodes — quote every label so commas, colons, etc. survive. */
+    /* Nodes — quote every label so commas, colons, etc. survive. Noted
+       nodes get their marker appended to the label. */
     var styleLines = [];
     nodes.forEach(function (n) {
       var label = n.label != null ? n.label : n.id;
+      if (markerById[n.id]) label = label + " " + markerById[n.id];
       var shaped;
       if (n.shape === "circle") {
         shaped = n.id + "((\"" + escapeMermaid(label) + "\"))";
@@ -2574,6 +2605,16 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       styleLines.forEach(function (s) { body.push(s); });
     }
 
+    /*  Click links from each noted node to its note anchor below. These
+        activate in loose-security Mermaid viewers (mermaid.live, VS Code,
+        self-hosted docs); GitHub sandboxes them away harmlessly. */
+    if (noteList.length > 0) {
+      body.push("");
+      noteList.forEach(function (e) {
+        body.push("  click " + e.id + " \"#note-" + slugForNote(e) + "\" \"" + escapeMermaid(e.label) + "\"");
+      });
+    }
+
     /*  Wrap in a Markdown fenced code block so GitHub renders the diagram
         inline when the .md is committed. Pure-Mermaid loaders can still
         accept this file — our own loader strips the fence on read. */
@@ -2583,8 +2624,43 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     out.push("```mermaid");
     body.forEach(function (l) { out.push(l); });
     out.push("```");
+
+    /*  Notes section: plain Markdown below the diagram, so the note text
+        is always readable on GitHub. Each heading carries an anchor id
+        (note-<slug>) that the in-diagram click links point at. */
+    if (noteList.length > 0) {
+      out.push("");
+      out.push("## Notes");
+      noteList.forEach(function (e) {
+        out.push("");
+        out.push('<a id="note-' + slugForNote(e) + '"></a>');
+        out.push("**" + e.marker + " " + mdEscape(e.label) + "**");
+        out.push("");
+        /* Preserve the note's own line breaks as Markdown hard breaks. */
+        out.push(e.text.split(/\r?\n/).map(function (ln) { return mdEscape(ln); }).join("  \n"));
+      });
+    }
     out.push("");
     return out.join("\n");
+  }
+
+  /*  Footnote marker for the n-th note (1-based). Circled digits ①..⑳
+      cover the common case; beyond that we fall back to "(n)". */
+  function noteMarker(n) {
+    if (n >= 1 && n <= 20) return String.fromCharCode(0x2460 + (n - 1));
+    return "(" + n + ")";
+  }
+
+  /*  Stable anchor slug for a note: the node id is already [A-Za-z0-9_-]
+      (UUID), which is anchor-safe, so use it directly. */
+  function slugForNote(entry) {
+    return String(entry.id).replace(/[^A-Za-z0-9_-]/g, "-");
+  }
+
+  /*  Escape Markdown-significant characters in note text / labels so the
+      Notes section renders as plain text rather than accidental markup. */
+  function mdEscape(s) {
+    return String(s).replace(/([\\`*_{}\[\]()#+\-.!|<>])/g, "\\$1");
   }
 
   function downloadMermaid() {
@@ -2828,10 +2904,15 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
       if (meta.notes) {
         Object.keys(meta.notes).forEach(function (id) {
-          if (!nodes.get(id)) return;
+          var nd = nodes.get(id);
+          if (!nd) return;
           var n = meta.notes[id];
           if (typeof n === "string" && n.length > 0) {
-            nodes.update({ id: id, _note: n, title: n });
+            /*  Restore the hover note, AND strip the footnote marker
+                (①②… or "(n)") that export appended to the visible label,
+                so the tool shows the clean label again. */
+            var clean = stripNoteMarker(nd.label != null ? nd.label : id);
+            nodes.update({ id: id, _note: n, title: n, label: clean });
           }
         });
       }
