@@ -2415,14 +2415,32 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   /*  Note cue: a soft AMBER outer glow around any node that carries a
       `_note`. Drawn behind the node (beforeDrawing) so the node paints
       over the solid core and only the blurred halo shows around the
-      silhouette — works uniformly on box, circle and cylinder. Amber
-      keeps it distinct from the red master aura and the selection border. */
-  var NOTE_GLOW_COLOR = "rgba(255, 255, 255, 0.65)"; /* white, slightly dimmed */
+      silhouette — works uniformly on box, circle and cylinder. The glow is
+      tinted to match each node's own outline, so a green node glows green, a
+      red node red, etc. (see noteGlowColor). */
+  var NOTE_GLOW_ALPHA = 0.8;          /* opacity of the tinted ring + halo */
   var NOTE_GLOW_BLUR  = 14;           /* screen px of halo spread */
   var NOTE_GLOW_RING  = 3;            /* screen px of the crisp ring stroke */
   var NOTE_GLOW_PASSES = 2;           /* stroke repeats to intensify the glow */
   var NOTE_GLOW_OUTSET = 5;           /* px the ring sits OUTSIDE the body */
   var NODE_DEFAULT_BG = "#2d4a63";    /* slate-blue, matches buildOptions default */
+
+  /*  The note glow's colour for a node: its resting outline tint
+      (lightenHex(bg, 0.25) — the exact stroke vis/drawDatabaseShapes use)
+      at NOTE_GLOW_ALPHA, so the halo reads as the outline bleeding outward. */
+  function noteGlowColor(n) {
+    var bg = nodeBackgroundColor(n) || NODE_DEFAULT_BG;
+    return hexToRgba(lightenHex(bg, 0.25), NOTE_GLOW_ALPHA);
+  }
+
+  function hexToRgba(hex, alpha) {
+    var h = String(hex).replace("#", "");
+    if (h.length !== 6) return "rgba(255,255,255," + alpha + ")";
+    var r = parseInt(h.slice(0, 2), 16);
+    var g = parseInt(h.slice(2, 4), 16);
+    var b = parseInt(h.slice(4, 6), 16);
+    return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+  }
 
   function darkenHex(hex, amount) {
     var h = String(hex).replace("#", "");
@@ -2436,8 +2454,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     return "#" + hx(clamp(r)) + hx(clamp(g)) + hx(clamp(b));
   }
 
-  /*  Paint the white note glow around every noted node. Runs in
-      afterDrawing (ON TOP of the nodes) — not behind them — because the
+  /*  Paint the note glow around every noted node, tinted to the node's own
+      outline colour. Runs in afterDrawing (ON TOP of the nodes) — not behind
+      them — because the
       nodes' dark drop shadows are painted in the node pass and would
       otherwise darken the glow unevenly (most on the small box, least on
       the larger shapes, making the box look dimmer). To keep the glow from
@@ -2500,8 +2519,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       buildOutline(0);
       ctx.clip("evenodd");
 
-      ctx.strokeStyle = NOTE_GLOW_COLOR;
-      ctx.shadowColor = NOTE_GLOW_COLOR;
+      var glow = noteGlowColor(n);
+      ctx.strokeStyle = glow;
+      ctx.shadowColor = glow;
       ctx.shadowBlur = NOTE_GLOW_BLUR / scale;
       ctx.lineWidth = NOTE_GLOW_RING / scale;
       ctx.lineJoin = "round";
