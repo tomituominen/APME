@@ -1997,9 +1997,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
      shine, bent edges, edge labels and the corner note badge.
      =========================================================================== */
 
-  var DOT_GRID_SPACING = 40;
-  var DOT_GRID_RADIUS  = 1.6;
+  var DOT_GRID_SPACING = 40;   /* base world spacing between dots */
+  var DOT_GRID_RADIUS  = 1.6;  /* dot radius in SCREEN px (kept constant) */
   var DOT_GRID_COLOR   = "rgba(255, 255, 255, 0.13)";
+  var DOT_GRID_MIN_SCREEN = 22; /* min on-screen px between dots */
+  var DOT_GRID_MAX_DOTS = 40000; /* hard safety cap on dots per frame */
 
   function drawDotGrid(ctx) {
     if (!ctx || !network) return;
@@ -2011,17 +2013,41 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       br = network.DOMtoCanvas({ x: c.clientWidth || c.width, y: c.clientHeight || c.height });
     } catch (err) { return; }
     if (!tl || !br) return;
+    var scale = 1;
+    try { scale = network.getScale() || 1; } catch (e) {}
+    if (!(scale > 0)) return;
+
+    /*  Adaptive spacing: the grid is anchored to world coordinates, but as
+        the user zooms OUT the on-screen gap (sp * scale) shrinks, which —
+        with a fixed world spacing — would balloon the dot count into the
+        millions and freeze the tab. Double the world spacing until the
+        on-screen gap is at least DOT_GRID_MIN_SCREEN px, so the dot count
+        stays bounded by the viewport size at any zoom. */
     var sp = DOT_GRID_SPACING;
+    var guard = 0;
+    while (sp * scale < DOT_GRID_MIN_SCREEN && guard++ < 40) sp *= 2;
+
     var x0 = Math.floor(tl.x / sp) * sp;
     var y0 = Math.floor(tl.y / sp) * sp;
     var x1 = Math.ceil(br.x / sp) * sp;
     var y1 = Math.ceil(br.y / sp) * sp;
+
+    /*  Belt-and-braces: if somehow still too many dots, skip the grid for
+        this frame rather than hang. */
+    var nx = Math.floor((x1 - x0) / sp) + 1;
+    var ny = Math.floor((y1 - y0) / sp) + 1;
+    if (nx <= 0 || ny <= 0 || nx * ny > DOT_GRID_MAX_DOTS) return;
+
+    /*  Keep the dot radius ~constant on screen regardless of zoom (the ctx
+        is in world space here, scaled by `scale`). */
+    var r = DOT_GRID_RADIUS / scale;
+
     ctx.save();
     ctx.fillStyle = DOT_GRID_COLOR;
     for (var x = x0; x <= x1; x += sp) {
       for (var y = y0; y <= y1; y += sp) {
         ctx.beginPath();
-        ctx.arc(x, y, DOT_GRID_RADIUS, 0, 2 * Math.PI);
+        ctx.arc(x, y, r, 0, 2 * Math.PI);
         ctx.fill();
       }
     }
