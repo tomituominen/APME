@@ -909,6 +909,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
           label = inlineEditorOriginalLabel;
         }
         nodes.update({ id: target.id, label: label });
+        /*  A database node's cylinder lid grows with its width, so a
+            rename can change the right label offset — recompute it. */
+        var tn = nodes.get(target.id);
+        if (tn && tn.shape === "database") refreshDatabaseLabelOffset(target.id);
       } else {
         /* Edge label: empty string clears the label (undefined to vis-network). */
         var u = { id: target.id };
@@ -1216,21 +1220,64 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     }
   }
 
+  /*  Per-shape presentation tweaks (margin + label vertical adjust):
+        box      — global defaults.
+        circle   — roomier margin so the inscribed label isn't cramped.
+        database — vis-network draws the cylinder in a SQUARE box and sits
+                   the label up on the top "lid". We push it down into the
+                   body with a positive font.vadjust; because the lid grows
+                   with the node's width, the offset is width-proportional
+                   and applied by refreshDatabaseLabelOffset() (the value
+                   here is just a starting point, corrected after measure). */
+  function shapeStyleFor(shape) {
+    if (shape === "database") return { shape: "database", margin: 24, font: { vadjust: 16 } };
+    if (shape === "circle")   return { shape: "circle",   margin: 34, font: { vadjust: 0 } };
+    return { shape: "box", margin: 24, font: { vadjust: 0 } };
+  }
+
+  /*  The cylinder lid's height scales with the node's (square) width, so
+      the label's downward offset must too. Fit through two measured
+      points (~0.16·w for narrow nodes, ~0.13·w for wide) gives this
+      linear model, which keeps the label clear of the lid yet inside the
+      body across sizes. */
+  function dbVadjustFor(width) { return Math.round(width * 0.12 + 4); }
+
+  function refreshDatabaseLabelOffset(nodeId) {
+    if (!network) return;
+    var n = nodes.get(nodeId);
+    if (!n || n.shape !== "database") return;
+    /*  Force a synchronous redraw so vis-network re-measures the (possibly
+        just-changed) cylinder, then read its square width. vadjust never
+        affects width, so applying the offset can't loop. If the width
+        still isn't ready, retry next frame. */
+    try { network.redraw(); } catch (e) {}
+    var w = 0;
+    try {
+      var v = network.body && network.body.nodes && network.body.nodes[nodeId];
+      if (v && v.shape && typeof v.shape.width === "number") w = v.shape.width;
+    } catch (e2) {}
+    if (!(w > 0)) { requestAnimationFrame(function () { refreshDatabaseLabelOffset(nodeId); }); return; }
+    var vadj = dbVadjustFor(w);
+    var cur = (n.font && typeof n.font.vadjust === "number") ? n.font.vadjust : 0;
+    if (cur !== vadj) nodes.update({ id: nodeId, font: { vadjust: vadj } });
+  }
+
+  function refreshAllDatabaseOffsets() {
+    nodes.get().forEach(function (n) {
+      if (n.shape === "database") refreshDatabaseLabelOffset(n.id);
+    });
+  }
+
   /*  Set a regular node's shape (box / database / circle). The master's
-      shape is fixed (always a circle) so it's ignored here. "box" is the
-      default; circle and database give a wider, label-inside footprint, so
-      we nudge the layout to re-measure widths and keep spacing sane. */
+      shape is fixed (always a circle) so it's ignored here. */
   function setNodeShape(nodeId, shape) {
     var n = nodes.get(nodeId);
     if (!n || n._master) return;
     var allowed = { box: 1, database: 1, circle: 1 };
     if (!allowed[shape]) return;
-    var update = { id: nodeId, shape: shape };
-    /*  Database/circle inscribe their label; give them the same roomy
-        margin the master uses so the text isn't cramped. Box reverts to
-        the global default margin. */
-    update.margin = (shape === "box") ? 24 : 34;
-    nodes.update(update);
+    var st = shapeStyleFor(shape);
+    nodes.update({ id: nodeId, shape: st.shape, margin: st.margin, font: st.font });
+    if (shape === "database") refreshDatabaseLabelOffset(nodeId);
     if (network) network.redraw();
   }
 
@@ -2987,8 +3034,12 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         var mp = masterNodeProps();
         for (var k in mp) if (Object.prototype.hasOwnProperty.call(mp, k)) out2[k] = mp[k];
       } else if (n.shape && n.shape !== "box") {
-        /* Regular node keeps its declared shape (circle / database). */
-        out2.shape = n.shape;
+        /* Regular node keeps its declared shape (circle / database) with
+           the matching margin + label offset. */
+        var st = shapeStyleFor(n.shape);
+        out2.shape = st.shape;
+        out2.margin = st.margin;
+        out2.font = st.font;
       }
       return out2;
     });
@@ -3090,6 +3141,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         already-pinned ones (those that came in with positions) get
         skipped by the layout engine. */
     autoLayout();
+
+    /*  Now that nodes are measured, set the width-proportional label
+        offset for every database node so the text sits in the cylinder
+        body, not on the lid. */
+    refreshAllDatabaseOffsets();
 
     if (filename) lastFilename = filename;
     setTimeout(function () { if (network) network.fit(); }, 30);
