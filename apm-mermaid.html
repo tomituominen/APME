@@ -974,6 +974,65 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
      keys using a directional-cone pick.
      =========================================================================== */
 
+  /*  Pan the view the MINIMUM amount needed to bring a node fully on-screen,
+      with a comfortable margin so the inline editor floating over it is also
+      visible. Unlike network.focus(), which always recentres the node, this
+      leaves the view exactly where it is when the node is already visible and
+      otherwise nudges just far enough — so adding a node feels like the canvas
+      follows you, not like it jumps. */
+  function ensureNodeVisible(nodeId, animation) {
+    if (!network) return;
+    var scale = 1;
+    try { scale = network.getScale() || 1; } catch (e) {}
+    if (!(scale > 0)) scale = 1;
+    var view, canvasEl, vn, pos;
+    try {
+      view = network.getViewPosition();
+      canvasEl = network.canvas.frame.canvas;
+      vn = network.body.nodes[nodeId];
+      pos = network.getPositions([nodeId])[nodeId];   /* reflects moveNode immediately */
+    } catch (e) { return; }
+    if (!view || !canvasEl || !vn || !vn.shape || !pos) return;
+    /*  Build the node box from its live position + shape size. We can't use
+        network.getBoundingBox here: it only refreshes on a draw frame, so
+        right after autoLayout()'s synchronous moveNode it still holds the
+        node's PREVIOUS box — which made the pan land short. */
+    var w = vn.shape.width, h = vn.shape.height;
+    if (vn.shape.radius && (!w || !h)) { w = h = vn.shape.radius * 2; }
+    if (!w || !h) {
+      try { var gb = network.getBoundingBox(nodeId);
+            if (gb) { w = gb.right - gb.left; h = gb.bottom - gb.top;
+                      pos = { x: (gb.left + gb.right) / 2, y: (gb.top + gb.bottom) / 2 }; } } catch (e) {}
+    }
+    if (!w || !h) return;
+    var bb = { left: pos.x - w / 2, right: pos.x + w / 2, top: pos.y - h / 2, bottom: pos.y + h / 2 };
+    var wCss = canvasEl.clientWidth || canvasEl.width;
+    var hCss = canvasEl.clientHeight || canvasEl.height;
+    if (!wCss || !hCss) return;
+    var halfW = (wCss / scale) / 2, halfH = (hCss / scale) / 2;
+    /*  Comfort margin in screen px (constant regardless of zoom), in canvas
+        units. Keeps the node (and the editor on it) off the very edge. */
+    var M = 70 / scale;
+    var nL = bb.left - M, nR = bb.right + M, nT = bb.top - M, nB = bb.bottom + M;
+    var cx = view.x, cy = view.y, nx = cx, ny = cy;
+    /*  Each axis independently: only move if an edge of the node (+margin)
+        falls outside the viewport, and then by the least amount. If the node
+        is bigger than the viewport, centre it on that axis. */
+    if (nR - nL >= 2 * halfW)      nx = (bb.left + bb.right) / 2;
+    else if (cx - halfW > nL)      nx = nL + halfW;   /* off the left  → pan left  */
+    else if (cx + halfW < nR)      nx = nR - halfW;   /* off the right → pan right */
+    if (nB - nT >= 2 * halfH)      ny = (bb.top + bb.bottom) / 2;
+    else if (cy - halfH > nT)      ny = nT + halfH;   /* off the top    → pan up   */
+    else if (cy + halfH < nB)      ny = nB - halfH;   /* off the bottom → pan down */
+    if (nx === cx && ny === cy) return;               /* already visible → stay put */
+    try {
+      network.moveTo({
+        position: { x: nx, y: ny }, scale: scale,
+        animation: animation || { duration: 200, easingFunction: "easeOutQuint" }
+      });
+    } catch (e) {}
+  }
+
   function createConnectedNode(fromId, direction) {
     if (!network) return null;
     var src = nodes.get(fromId);
@@ -993,7 +1052,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     autoLayout();
     try { network.selectNodes([newId]); } catch (e) {}
     trackSelection();
-    try { network.focus(newId, { scale: network.getScale(), animation: { duration: 200 } }); } catch (e) {}
+    ensureNodeVisible(newId);
     showInlineEditor(newId, { isNew: true });
     return newId;
   }
@@ -1021,7 +1080,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     autoLayout();
     try { network.selectNodes([newId]); } catch (e) {}
     trackSelection();
-    try { network.focus(newId, { scale: network.getScale(), animation: { duration: 200 } }); } catch (e) {}
+    ensureNodeVisible(newId);
     showInlineEditor(newId, { isNew: true });
     return newId;
   }
@@ -1138,9 +1197,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     autoLayout();
     try { network.selectNodes([id]); } catch (e) {}
     trackSelection();
-    /* Centre on the freshly placed node so it's visible no matter where
-       the layout put it. */
-    try { network.focus(id, { scale: network.getScale(), animation: { duration: 200 } }); } catch (e) {}
+    /* Nudge the view just enough to reveal the freshly placed node (only if
+       the layout put it off-screen) — see ensureNodeVisible. */
+    ensureNodeVisible(id);
     showInlineEditor(id, { isNew: true });
     return id;
   }
@@ -3474,7 +3533,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         autoLayout();
         try { network.selectNodes([id]); } catch (err) {}
         trackSelection();
-        try { network.focus(id, { scale: network.getScale(), animation: { duration: 200 } }); } catch (err) {}
+        ensureNodeVisible(id);
         showInlineEditor(id, { isNew: true });
         return;
       }
