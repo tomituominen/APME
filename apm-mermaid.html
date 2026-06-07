@@ -1213,6 +1213,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var DB_MAX_WIDTH = 240;   /* wrap width — keeps cylinders from going too wide */
   var DB_TEXT_DROP = 6;     /* nudge label below bbox centre into the can body */
   var NODE_FONT_FACE = "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+  var NODE_FONT_COLOR = "#ecf0f6";   /* visible label colour (matches buildOptions default) */
 
   /*  vis-node props that make a node render as our custom cylinder: a
       transparent auto-sizing box, with top/bottom margin reserving room
@@ -1248,7 +1249,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   /*  vis-node props to (re)style a node as a plain box or circle, undoing
       any database transparency. Box pins minimum back to 1 so a circle's
-      minimum doesn't linger through vis's option merge on a shape switch. */
+      minimum doesn't linger through vis's option merge on a shape switch.
+      Also restores a VISIBLE font: a database node paints its label itself
+      and hides vis's with a transparent font, so switching away must put the
+      colour back or the box/circle text stays invisible. */
   function plainVisProps(shape) {
     var isCircle = (shape === "circle");
     var base = {
@@ -1257,7 +1261,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       shadow: { enabled: true, color: "rgba(0,0,0,0.45)", size: 10, x: 0, y: 4 },
       widthConstraint: isCircle ? { minimum: CIRCLE_MIN_WIDTH, maximum: 460 }
                                 : { minimum: 1, maximum: 460 },
-      margin: isCircle ? 34 : 24
+      margin: isCircle ? 34 : 24,
+      font: { size: 28, color: NODE_FONT_COLOR, face: NODE_FONT_FACE }
     };
     return base;
   }
