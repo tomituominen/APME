@@ -2472,6 +2472,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         shape: "box",
         margin: 24,
         widthConstraint: { maximum: 460 },
+        /*  Don't bold the label on hover/select. vis-network's default
+            (labelHighlightBold: true) widens the text, and shapes that
+            size to fit their label — circles especially — then visibly
+            grow on hover. Keeping it off keeps the node size stable. */
+        labelHighlightBold: false,
         font: { size: 28, color: "#ecf0f6", face: "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" },
         color: {
           background: "#2d4a63",
