@@ -2133,13 +2133,12 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (!ctx || !network) return;
     nodes.forEach(function (n) {
       if (!n) return;
-      /*  The shine is a rounded-rectangle gradient — only meaningful on
-          real box nodes. Skip circles, and skip database nodes (which are
-          transparent boxes rendered as custom cylinders). A default node
-          has no explicit shape (inherits the global "box"), so an
-          undefined shape counts as a box. */
+      /*  Lit-from-above gradient overlay. Applied to box AND circle so
+          they shade identically; database nodes are skipped here because
+          their cylinder pass (drawDatabaseShapes) applies the same
+          gradient itself. A default node has no explicit shape (inherits
+          the global "box"), so an undefined shape counts as a box. */
       if (n._db) return;
-      if (n.shape && n.shape !== "box") return;
       var bb = nodeBBox(n.id);
       if (!bb) return;
       var inset = NODE_BORDER_WIDTH;
@@ -2149,17 +2148,26 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       var h = (bb.bottom - bb.top) - 2 * inset;
       if (w <= 0 || h <= 0) return;
       ctx.save();
-      /*  Clip to the node's rounded-rect so the gradient doesn't leak
-          past the border on the corners. */
-      roundedRectPath(ctx, x, y, w, h, NODE_CORNER_RADIUS - 1);
-      ctx.clip();
-      /*  Vertical gradient — light at top, transparent in the middle,
-          dark at the bottom. Low alpha so it tints rather than recolours. */
-      ctx.fillStyle = nodeShineGradient(ctx, y, y + h);
-      ctx.fillRect(x, y, w, h);
-      /*  Crisp 1 px top-edge highlight — reads as a bevelled top ridge. */
-      ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
-      ctx.fillRect(x, y, w, 1);
+      if (n.shape === "circle") {
+        /*  Clip to the circle so the gradient stays inside the rim. */
+        var cx = (bb.left + bb.right) / 2, cy = (bb.top + bb.bottom) / 2;
+        var r = Math.min(w, h) / 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+        ctx.clip();
+        ctx.fillStyle = nodeShineGradient(ctx, cy - r, cy + r);
+        ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+      } else {
+        /*  Clip to the node's rounded-rect so the gradient doesn't leak
+            past the border on the corners. */
+        roundedRectPath(ctx, x, y, w, h, NODE_CORNER_RADIUS - 1);
+        ctx.clip();
+        ctx.fillStyle = nodeShineGradient(ctx, y, y + h);
+        ctx.fillRect(x, y, w, h);
+        /*  Crisp 1 px top-edge highlight — reads as a bevelled top ridge. */
+        ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
+        ctx.fillRect(x, y, w, 1);
+      }
       ctx.restore();
     });
   }
@@ -2194,15 +2202,21 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       var strokeW = isSel ? 5 : 3;
       ctx.save();
 
-      /* Fill the silhouette: wall rect + bottom ellipse + top ellipse. */
+      /*  Fill the silhouette (wall rect + both cap ellipses, as one path)
+          and cast the SAME drop shadow vis gives box/circle nodes, so the
+          cylinder sits with matching depth. Shadow is reset right after so
+          it doesn't bleed onto the gradient / lid / outline that follow. */
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,0.45)";
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 4;
       ctx.fillStyle = bg;
-      ctx.fillRect(left, top + cap, w, (bottom - cap) - (top + cap));
       ctx.beginPath();
+      ctx.rect(left, top + cap, w, (bottom - cap) - (top + cap));
+      ctx.ellipse(cx, top + cap, rx, cap, 0, 0, 2 * Math.PI);
       ctx.ellipse(cx, bottom - cap, rx, cap, 0, 0, 2 * Math.PI);
       ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(cx, top + cap, rx, cap, 0, 0, 2 * Math.PI);
-      ctx.fill();
+      ctx.restore();
 
       /*  Same "lit from above" gradient the box gets (drawNodeShinePass),
           clipped to the cylinder silhouette (the union of the wall rect +
