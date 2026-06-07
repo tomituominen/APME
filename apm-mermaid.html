@@ -909,10 +909,6 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
           label = inlineEditorOriginalLabel;
         }
         nodes.update({ id: target.id, label: label });
-        /*  A database node's cylinder lid grows with its width, so a
-            rename can change the right label offset — recompute it. */
-        var tn = nodes.get(target.id);
-        if (tn && tn.shape === "database") refreshDatabaseLabelOffset(target.id);
       } else {
         /* Edge label: empty string clears the label (undefined to vis-network). */
         var u = { id: target.id };
@@ -1209,9 +1205,69 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     };
   }
 
+  /*  Database (cylinder) nodes are special: vis-network's built-in
+      `database` shape sizes as a square and parks the label on the lid,
+      with poor word-wrap. Instead a database node is an INVISIBLE
+      auto-sizing, word-wrapping vis `box` (so vis handles wrap + growth +
+      label centring), tagged with `_db: true`, and we draw the cylinder
+      ourselves around it (drawDatabaseShapes). The box's fill/border are
+      transparent; the visible colour comes from `_bg` via the renderer. */
+  var DB_CAP = 16;          /* elliptical cap (lid / bottom) half-height */
+  var DB_PAD = 8;           /* gap between the cap and the text */
+  var DB_MAX_WIDTH = 240;   /* wrap width — keeps cylinders from going too wide */
+  var DB_ACCENT = "#e85a4f";
+
+  /*  vis-node props that make a node render as our custom cylinder: a
+      transparent auto-sizing box, with top/bottom margin reserving room
+      for the caps so the label centres in the cylindrical wall. */
+  function dbVisProps() {
+    return {
+      shape: "box",
+      _db: true,
+      shadow: false,
+      widthConstraint: { maximum: DB_MAX_WIDTH },
+      margin: { top: 2 * DB_CAP + DB_PAD, bottom: 2 * DB_CAP + DB_PAD, left: 22, right: 22 },
+      color: {
+        background: TRANSPARENT, border: TRANSPARENT,
+        highlight: { background: TRANSPARENT, border: TRANSPARENT },
+        hover: { background: TRANSPARENT, border: TRANSPARENT }
+      }
+    };
+  }
+
+  /*  vis-node props to (re)style a node as a plain box or circle, undoing
+      any database transparency. */
+  function plainVisProps(shape) {
+    var base = {
+      shape: (shape === "circle") ? "circle" : "box",
+      _db: false,
+      shadow: { enabled: true, color: "rgba(0,0,0,0.45)", size: 10, x: 0, y: 4 },
+      widthConstraint: { maximum: 460 },
+      margin: (shape === "circle") ? 34 : 24
+    };
+    return base;
+  }
+
+  /*  The logical APM shape of a node (what the picker shows, what export
+      emits): circle for the master or a circle-shaped node, database when
+      flagged, else box. */
+  function nodeApmShape(n) {
+    if (!n) return "box";
+    if (n._db) return "database";
+    if (n._master || n.shape === "circle") return "circle";
+    return "box";
+  }
+
   function setNodeColor(nodeId, hex) {
-    if (!nodes.get(nodeId)) return;
-    nodes.update({ id: nodeId, color: colorObjectFromHex(hex), _bg: hex });
+    var n = nodes.get(nodeId);
+    if (!n) return;
+    if (n._db) {
+      /*  Cylinder fill is drawn by us from `_bg`; the underlying box stays
+          transparent. Only update the stored colour. */
+      nodes.update({ id: nodeId, _bg: hex });
+    } else {
+      nodes.update({ id: nodeId, color: colorObjectFromHex(hex), _bg: hex });
+    }
     /* If the inline editor is open on this node, restyle it to match. */
     if (inlineEditor && inlineEditorTarget && inlineEditorTarget.type === "node"
         && inlineEditorTarget.id === nodeId && inlineEditor.style.display !== "none") {
@@ -1220,64 +1276,21 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     }
   }
 
-  /*  Per-shape presentation tweaks (margin + label vertical adjust):
-        box      — global defaults.
-        circle   — roomier margin so the inscribed label isn't cramped.
-        database — vis-network draws the cylinder in a SQUARE box and sits
-                   the label up on the top "lid". We push it down into the
-                   body with a positive font.vadjust; because the lid grows
-                   with the node's width, the offset is width-proportional
-                   and applied by refreshDatabaseLabelOffset() (the value
-                   here is just a starting point, corrected after measure). */
-  function shapeStyleFor(shape) {
-    if (shape === "database") return { shape: "database", margin: 24, font: { vadjust: 16 } };
-    if (shape === "circle")   return { shape: "circle",   margin: 34, font: { vadjust: 0 } };
-    return { shape: "box", margin: 24, font: { vadjust: 0 } };
-  }
-
-  /*  The cylinder lid's height scales with the node's (square) width, so
-      the label's downward offset must too. Fit through two measured
-      points (~0.16·w for narrow nodes, ~0.13·w for wide) gives this
-      linear model, which keeps the label clear of the lid yet inside the
-      body across sizes. */
-  function dbVadjustFor(width) { return Math.round(width * 0.12 + 4); }
-
-  function refreshDatabaseLabelOffset(nodeId) {
-    if (!network) return;
-    var n = nodes.get(nodeId);
-    if (!n || n.shape !== "database") return;
-    /*  Force a synchronous redraw so vis-network re-measures the (possibly
-        just-changed) cylinder, then read its square width. vadjust never
-        affects width, so applying the offset can't loop. If the width
-        still isn't ready, retry next frame. */
-    try { network.redraw(); } catch (e) {}
-    var w = 0;
-    try {
-      var v = network.body && network.body.nodes && network.body.nodes[nodeId];
-      if (v && v.shape && typeof v.shape.width === "number") w = v.shape.width;
-    } catch (e2) {}
-    if (!(w > 0)) { requestAnimationFrame(function () { refreshDatabaseLabelOffset(nodeId); }); return; }
-    var vadj = dbVadjustFor(w);
-    var cur = (n.font && typeof n.font.vadjust === "number") ? n.font.vadjust : 0;
-    if (cur !== vadj) nodes.update({ id: nodeId, font: { vadjust: vadj } });
-  }
-
-  function refreshAllDatabaseOffsets() {
-    nodes.get().forEach(function (n) {
-      if (n.shape === "database") refreshDatabaseLabelOffset(n.id);
-    });
-  }
-
   /*  Set a regular node's shape (box / database / circle). The master's
-      shape is fixed (always a circle) so it's ignored here. */
+      shape is fixed (always a circle) so it's ignored here. Switching to
+      or from a database swaps the transparency + margins accordingly and
+      re-asserts the node's colour. */
   function setNodeShape(nodeId, shape) {
     var n = nodes.get(nodeId);
     if (!n || n._master) return;
     var allowed = { box: 1, database: 1, circle: 1 };
     if (!allowed[shape]) return;
-    var st = shapeStyleFor(shape);
-    nodes.update({ id: nodeId, shape: st.shape, margin: st.margin, font: st.font });
-    if (shape === "database") refreshDatabaseLabelOffset(nodeId);
+    var bg = nodeBackgroundColor(n) || NODE_DEFAULT_BG;
+    if (shape === "database") {
+      nodes.update(Object.assign({ id: nodeId, _bg: bg }, dbVisProps()));
+    } else {
+      nodes.update(Object.assign({ id: nodeId, color: colorObjectFromHex(bg), _bg: bg }, plainVisProps(shape)));
+    }
     if (network) network.redraw();
   }
 
@@ -1438,7 +1451,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         shapeRow.style.display = "none";
       } else {
         shapeRow.style.display = "";
-        var curShape = (nd && nd.shape) ? nd.shape : "box";
+        var curShape = nodeApmShape(nd);
         var sbtns = shapeRow.querySelectorAll("button.shape-action");
         for (var j = 0; j < sbtns.length; j++) {
           if (sbtns[j].getAttribute("data-shape") === curShape) sbtns[j].classList.add("active");
@@ -2082,9 +2095,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     nodes.forEach(function (n) {
       if (!n) return;
       /*  The shine is a rounded-rectangle gradient — only meaningful on
-          box nodes. Skip circles and cylinders (any non-box shape). A
-          default node has no explicit shape (inherits the global "box"),
-          so an undefined shape counts as a box. */
+          real box nodes. Skip circles, and skip database nodes (which are
+          transparent boxes rendered as custom cylinders). A default node
+          has no explicit shape (inherits the global "box"), so an
+          undefined shape counts as a box. */
+      if (n._db) return;
       if (n.shape && n.shape !== "box") return;
       var bb = nodeBBox(n.id);
       if (!bb) return;
@@ -2110,6 +2125,66 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       /*  Crisp 1 px top-edge highlight — reads as a bevelled top ridge. */
       ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
       ctx.fillRect(x, y, w, 1);
+      ctx.restore();
+    });
+  }
+
+  /*  Custom cylinder renderer for database (_db) nodes. The underlying vis
+      node is a transparent auto-sizing box; here we paint the cylinder
+      that fills its bounding box, with the label (drawn by vis on top)
+      sitting centred in the cylindrical wall thanks to the box's
+      top/bottom cap margins. The lid (top ellipse) gets a lighter fill for
+      a 3-D read; outline + selection use the node's colour / accent. */
+  function drawDatabaseShapes(ctx) {
+    if (!ctx || !network) return;
+    var sel = {};
+    try { (network.getSelectedNodes() || []).forEach(function (id) { sel[id] = true; }); } catch (e) {}
+    nodes.forEach(function (n) {
+      if (!n || !n._db) return;
+      var bb = nodeBBox(n.id);
+      if (!bb) return;
+      var left = bb.left, right = bb.right, top = bb.top, bottom = bb.bottom;
+      var w = right - left, h = bottom - top;
+      if (w <= 0 || h <= 0) return;
+      var cap = Math.min(DB_CAP, h / 2 - 1);
+      var cx = (left + right) / 2;
+      var rx = w / 2;
+      var bg = nodeBackgroundColor(n) || NODE_DEFAULT_BG;
+      var lidFill = lightenHex(bg, 0.16);
+      var isSel = !!sel[n.id];
+      var stroke = isSel ? DB_ACCENT : darkenHex(bg, 0.38);
+      ctx.save();
+
+      /* Fill the silhouette: wall rect + bottom ellipse + top ellipse. */
+      ctx.fillStyle = bg;
+      ctx.fillRect(left, top + cap, w, (bottom - cap) - (top + cap));
+      ctx.beginPath();
+      ctx.ellipse(cx, bottom - cap, rx, cap, 0, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(cx, top + cap, rx, cap, 0, 0, 2 * Math.PI);
+      ctx.fill();
+      /* Lighter lid on top for a 3-D rim. */
+      ctx.fillStyle = lidFill;
+      ctx.beginPath();
+      ctx.ellipse(cx, top + cap, rx, cap, 0, 0, 2 * Math.PI);
+      ctx.fill();
+
+      /* Outline: side walls, bottom front arc, full top rim. */
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = isSel ? 4 : 2.5;
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(left, top + cap);  ctx.lineTo(left, bottom - cap);
+      ctx.moveTo(right, top + cap); ctx.lineTo(right, bottom - cap);
+      ctx.stroke();
+      ctx.beginPath();   /* bottom front edge (lower half of bottom ellipse) */
+      ctx.ellipse(cx, bottom - cap, rx, cap, 0, 0, Math.PI);
+      ctx.stroke();
+      ctx.beginPath();   /* top rim (full ellipse) */
+      ctx.ellipse(cx, top + cap, rx, cap, 0, 0, 2 * Math.PI);
+      ctx.stroke();
+
       ctx.restore();
     });
   }
@@ -2448,6 +2523,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       drawDotGrid(ctx);
       drawMasterAura(ctx);
       drawBentEdges(ctx);
+      drawDatabaseShapes(ctx);
     });
 
     /*  afterDrawing layer order (bottom → top):
@@ -2739,10 +2815,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       var q = "\"" + escapeMermaid(label) + "\"";
       var shaped;
       /*  Shape → Mermaid syntax. Master is always a circle. Regular nodes
-          may be circle (((…))), database/cylinder ([(…)]), or box ([…]). */
-      if (n._master || n.shape === "circle") {
+          may be circle (((…))), database/cylinder ([(…)]), or box ([…]).
+          Database nodes render as a transparent box internally, so they're
+          identified by the _db flag, not n.shape. */
+      var apm = nodeApmShape(n);
+      if (apm === "circle") {
         shaped = n.id + "((" + q + "))";
-      } else if (n.shape === "database") {
+      } else if (apm === "database") {
         shaped = n.id + "[(" + q + ")]";
       } else {
         shaped = n.id + "[" + q + "]";
@@ -3033,13 +3112,14 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         /* Master styling overrides shape to circle + red. */
         var mp = masterNodeProps();
         for (var k in mp) if (Object.prototype.hasOwnProperty.call(mp, k)) out2[k] = mp[k];
-      } else if (n.shape && n.shape !== "box") {
-        /* Regular node keeps its declared shape (circle / database) with
-           the matching margin + label offset. */
-        var st = shapeStyleFor(n.shape);
-        out2.shape = st.shape;
-        out2.margin = st.margin;
-        out2.font = st.font;
+      } else if (n.shape === "database") {
+        /*  Database → invisible auto-sizing box rendered as a custom
+            cylinder (see drawDatabaseShapes). */
+        var dp = dbVisProps();
+        for (var dk in dp) if (Object.prototype.hasOwnProperty.call(dp, dk)) out2[dk] = dp[dk];
+      } else if (n.shape === "circle") {
+        out2.shape = "circle";
+        out2.margin = 34;
       }
       return out2;
     });
@@ -3141,11 +3221,6 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         already-pinned ones (those that came in with positions) get
         skipped by the layout engine. */
     autoLayout();
-
-    /*  Now that nodes are measured, set the width-proportional label
-        offset for every database node so the text sits in the cylinder
-        body, not on the lid. */
-    refreshAllDatabaseOffsets();
 
     if (filename) lastFilename = filename;
     setTimeout(function () { if (network) network.fit(); }, 30);
