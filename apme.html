@@ -537,15 +537,14 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       no longer THICKENS the line — it adds a red glow instead (see
       EDGE_GLOW_* and drawSelectedEdgeGlow), so the width is constant. */
   var EDGE_WIDTH = 10;
-  /*  Edge highlight colour — the line keeps its normal width and gets a soft
-      light-grey halo painted under it (canvas shadow). This single constant
-      drives ALL THREE highlight operations identically: line selection,
-      hovering a node (its connected edges), and hovering a line — both the lit
-      line core (vis color.highlight/hover and the bent-edge renderer) and the
-      halo (drawSelectedEdgeGlow). */
+  /*  Edge highlight = leave the LINE itself untouched (same colour + width) and
+      paint a soft halo under it that fades into the background (canvas shadow).
+      One constant + one function (drawSelectedEdgeGlow) drive all three
+      operations identically: line selection, hovering a node (its connected
+      edges), and hovering a line. The line core is NOT recoloured. */
   var EDGE_GLOW_COLOR = "#cccccc";
-  var EDGE_GLOW_BLUR = 5;      /* screen px of halo spread (tight glow) */
-  var EDGE_GLOW_PASSES = 3;    /* stroke repeats to intensify the glow */
+  var EDGE_GLOW_BLUR = 12;     /* screen px the halo fades over */
+  var EDGE_GLOW_PASSES = 3;    /* stroke repeats to intensify the halo */
   /*  Saved Mermaid line styling, emitted as a `linkStyle default` directive
       (see exportMermaid); our loader ignores linkStyle, so the round-trip is
       unaffected. Lines render light grey, slightly thinner than the editor. */
@@ -2546,30 +2545,20 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   function drawBentEdges(ctx) {
     if (!ctx || !network) return;
-    /*  An edge's core lightens to the glow colour when it's selected OR
-        connected to the hovered node — so hovered bent edges match selected
-        ones (vis only recolours STRAIGHT edges on hover; we own bent ones). */
-    var highlighted = {};
-    try {
-      (network.getSelectedEdges() || []).forEach(function (id) { highlighted[id] = true; });
-      if (hoverNodeId != null) {
-        (network.getConnectedEdges(hoverNodeId) || []).forEach(function (id) { highlighted[id] = true; });
-      }
-    } catch (err) {}
-    if (hoverEdgeId != null) highlighted[hoverEdgeId] = true;
     edges.forEach(function (e) {
       if (!e._bend) return;
       /*  Live endpoint positions so the curve follows a node mid-drag. */
       var ep = endpointPositions(e);
       if (!ep) return;
       var C = paramToAbs(ep.A, ep.B, e._bend);
-      var sel = !!highlighted[e.id];
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(ep.A.x, ep.A.y);
       ctx.quadraticCurveTo(C.x, C.y, ep.B.x, ep.B.y);
-      ctx.strokeStyle = sel ? EDGE_GLOW_COLOR : "#8a94a6";
-      ctx.lineWidth = EDGE_WIDTH;   /* selection shows as a glow, not extra width */
+      /*  Always the base colour — selection/hover are shown by the fading
+          halo (drawSelectedEdgeGlow), not by recolouring the line. */
+      ctx.strokeStyle = "#8a94a6";
+      ctx.lineWidth = EDGE_WIDTH;
       ctx.lineCap = "round";
       if (Array.isArray(e.dashes)) ctx.setLineDash(e.dashes);
       else if (e.dashes === true) ctx.setLineDash([6, 6]);
@@ -2866,7 +2855,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
            kept in the data and in Mermaid's `---` direction, but the
            rendering shows plain undirected lines. */
         arrows: { to: { enabled: false }, from: { enabled: false }, middle: { enabled: false } },
-        color: { color: "#8a94a6", highlight: EDGE_GLOW_COLOR, hover: EDGE_GLOW_COLOR },
+        /*  Selection/hover do NOT recolour the line — the highlight is the
+            fading halo (drawSelectedEdgeGlow). So highlight/hover keep the
+            base colour. */
+        color: { color: "#8a94a6", highlight: "#8a94a6", hover: "#8a94a6" },
         /*  Labels are drawn entirely by our own afterDrawing hook (see
             drawAllEdgeLabels). vis-network's label engine applies a hidden
             default offset on top of `vadjust` that depends on label height,
