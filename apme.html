@@ -545,6 +545,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   /*  Id of the node the mouse is currently hovering (or null). Its connected
       edges get the same glow as a selected line — see drawSelectedEdgeGlow. */
   var hoverNodeId = null;
+  /*  Id of the edge the mouse is currently hovering (or null) — it gets the
+      same glow too. */
+  var hoverEdgeId = null;
 
   /*  Selection history. Whenever the selected node changes (user click,
       arrow-key nav, programmatic selectNodes), we record the prior node
@@ -2444,6 +2447,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (hoverNodeId != null) {
       try { (network.getConnectedEdges(hoverNodeId) || []).forEach(function (id) { idSet[id] = true; }); } catch (e) {}
     }
+    if (hoverEdgeId != null) idSet[hoverEdgeId] = true;
     var ids = Object.keys(idSet);
     if (ids.length === 0) return;
     var scale = 1;
@@ -2504,6 +2508,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         (network.getConnectedEdges(hoverNodeId) || []).forEach(function (id) { highlighted[id] = true; });
       }
     } catch (err) {}
+    if (hoverEdgeId != null) highlighted[hoverEdgeId] = true;
     edges.forEach(function (e) {
       if (!e._bend) return;
       /*  Live endpoint positions so the curve follows a node mid-drag. */
@@ -2951,13 +2956,21 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       if (nc) nc.classList.remove("hover-node");
       if (hoverNodeId != null) { hoverNodeId = null; try { network.redraw(); } catch (e) {} }
     });
-    network.on("hoverEdge", function () { if (nc) nc.classList.add("hover-edge"); });
-    network.on("blurEdge",  function () { if (nc) nc.classList.remove("hover-edge"); });
+    network.on("hoverEdge", function (params) {
+      if (nc) nc.classList.add("hover-edge");
+      /*  Glow the hovered edge, same as a selected line. */
+      hoverEdgeId = params && params.edge != null ? params.edge : null;
+      try { network.redraw(); } catch (e) {}
+    });
+    network.on("blurEdge",  function () {
+      if (nc) nc.classList.remove("hover-edge");
+      if (hoverEdgeId != null) { hoverEdgeId = null; try { network.redraw(); } catch (e) {} }
+    });
     /*  Dragging the viewport (pan) should read as grabbing; clear the
         hover markers during a drag so they don't override it. */
     network.on("dragStart", function () {
       if (nc) { nc.classList.remove("hover-node"); nc.classList.remove("hover-edge"); }
-      if (hoverNodeId != null) { hoverNodeId = null; try { network.redraw(); } catch (e) {} }
+      if (hoverNodeId != null || hoverEdgeId != null) { hoverNodeId = null; hoverEdgeId = null; try { network.redraw(); } catch (e) {} }
     });
 
     /*  Track selection changes so Del can return focus to the previously
