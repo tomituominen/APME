@@ -3205,11 +3205,6 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
     var dir = (layoutDirection === "LR" ? "LR" : "RL");
     var body = [];
-    /*  Use a curve that PASSES THROUGH its endpoints. Mermaid's default
-        "basis" spline only approximates control points, so curved edges stop
-        short of the node — a visible gap where lines meet a box. "natural"
-        keeps the smooth look but reaches the nodes cleanly. */
-    body.push("%%{init: {\"flowchart\": {\"curve\": \"natural\"}}}%%");
     body.push("%% APM-DATA: " + JSON.stringify(meta));
     body.push("flowchart " + dir);
 
