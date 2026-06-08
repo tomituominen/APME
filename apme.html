@@ -538,14 +538,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       EDGE_GLOW_* and drawSelectedEdgeGlow), so the width is constant. */
   var EDGE_WIDTH = 10;
   /*  Edge highlight colour — the line keeps its normal width and gets a soft
-      grey halo painted under it (canvas shadow). This single constant drives
-      ALL THREE highlight operations identically: line selection, hovering a
-      node (its connected edges), and hovering a line — both the lit line core
-      (vis color.highlight/hover and the bent-edge renderer) and the halo
-      (drawSelectedEdgeGlow). #666 is half the luminance of plain #ccc, i.e. a
-      50%-dimmer, subtler highlight. */
-  var EDGE_GLOW_COLOR = "#666666";
-  var EDGE_GLOW_BLUR = 18;     /* screen px of halo spread */
+      light-grey halo painted under it (canvas shadow). This single constant
+      drives ALL THREE highlight operations identically: line selection,
+      hovering a node (its connected edges), and hovering a line — both the lit
+      line core (vis color.highlight/hover and the bent-edge renderer) and the
+      halo (drawSelectedEdgeGlow). */
+  var EDGE_GLOW_COLOR = "#cccccc";
+  var EDGE_GLOW_BLUR = 9;      /* screen px of halo spread (tight glow) */
   var EDGE_GLOW_PASSES = 3;    /* stroke repeats to intensify the glow */
   /*  Saved Mermaid line styling, emitted as a `linkStyle default` directive
       (see exportMermaid); our loader ignores linkStyle, so the round-trip is
