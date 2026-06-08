@@ -3207,8 +3207,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     var body = [];
     /*  Use a curve that PASSES THROUGH its endpoints so links meet nodes
         cleanly (Mermaid's default "basis" only approximates them, leaving a
-        small gap). */
-    body.push("%%{init: {\"flowchart\": {\"curve\": \"cardinal\"}}}%%");
+        small gap). "bumpX" is a horizontal-bias bezier that suits the LR/RL
+        flow and reaches nodes without overshooting. */
+    body.push("%%{init: {\"flowchart\": {\"curve\": \"bumpX\"}}}%%");
     body.push("%% APM-DATA: " + JSON.stringify(meta));
     body.push("flowchart " + dir);
 
