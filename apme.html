@@ -524,18 +524,21 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       (download-based) open, which can't write back. */
   var fileHandle = null;
 
-  /*  Edge widths shared between vis-network's straight-edge renderer and
-      our custom Bezier renderer for bent edges. Keeping them in one place
-      ensures the selection-highlight thickness is identical regardless of
-      whether the line is curved by drag-to-bend or just smooth-natural. */
+  /*  Edge width, shared between vis-network's straight-edge renderer and our
+      custom Bezier renderer for bent edges so both look identical. Selection
+      no longer THICKENS the line — it adds a red glow instead (see
+      EDGE_GLOW_* and drawSelectedEdgeGlow), so the width is constant. */
   var EDGE_WIDTH = 10;
-  var EDGE_WIDTH_SELECTED = 20;
-  /*  Lines are drawn THICKER in the saved Mermaid than in the editor: a
-      GitHub-rendered diagram is usually viewed zoomed out, where the editor's
-      width reads thin. Emitted as a `linkStyle default stroke-width` directive
+  /*  Selected-edge glow: the line stays its normal width and turns red, with
+      a soft red halo painted under it (canvas shadow). */
+  var EDGE_GLOW_COLOR = "#e85a4f";
+  var EDGE_GLOW_BLUR = 18;     /* screen px of halo spread */
+  var EDGE_GLOW_PASSES = 3;    /* stroke repeats to intensify the glow */
+  /*  Lines are drawn a bit thicker in the saved Mermaid than the editor's
+      on-screen width, emitted as a `linkStyle default stroke-width` directive
       (see exportMermaid); our loader ignores linkStyle, so the round-trip is
       unaffected. */
-  var EXPORT_EDGE_WIDTH = 20;
+  var EXPORT_EDGE_WIDTH = 10;
   var statusTimer = null;
 
   /*  Selection history. Whenever the selected node changes (user click,
@@ -1706,7 +1709,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
      and the Mermaid I/O in Section 13.
      =========================================================================== */
 
-  var DOTTED_PATTERN = [2, 8];
+  var DOTTED_PATTERN = [2, 18];
 
   function edgeIsDotted(edge) {
     if (!edge) return false;
@@ -2420,6 +2423,49 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     });
   }
 
+  /*  Soft red halo under every selected edge — the selection cue (replaces the
+      old thick-line highlight). Traced along the edge's path: the quadratic
+      Bezier for bent edges, the straight chord otherwise. Drawn in
+      beforeDrawing (behind the crisp line vis/drawBentEdges paint on top, and
+      behind the nodes) so it reads as a glow hugging the line. The halo itself
+      comes from the canvas shadow, so the visible width stays EDGE_WIDTH. */
+  function drawSelectedEdgeGlow(ctx) {
+    if (!ctx || !network) return;
+    var selIds;
+    try { selIds = network.getSelectedEdges() || []; } catch (e) { return; }
+    if (selIds.length === 0) return;
+    var scale = 1;
+    try { scale = network.getScale() || 1; } catch (e) {}
+    if (!(scale > 0)) scale = 1;
+    selIds.forEach(function (id) {
+      var e = edges.get(id);
+      if (!e) return;
+      var ep = endpointPositions(e);
+      if (!ep) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(ep.A.x, ep.A.y);
+      if (e._bend) {
+        var C = paramToAbs(ep.A, ep.B, e._bend);
+        ctx.quadraticCurveTo(C.x, C.y, ep.B.x, ep.B.y);
+      } else {
+        ctx.lineTo(ep.B.x, ep.B.y);
+      }
+      ctx.strokeStyle = EDGE_GLOW_COLOR;
+      ctx.shadowColor = EDGE_GLOW_COLOR;
+      ctx.shadowBlur = EDGE_GLOW_BLUR / scale;
+      ctx.lineWidth = EDGE_WIDTH;
+      ctx.lineCap = "round";
+      /*  Mirror the line's dash so a dotted edge glows as dotted dots — a
+          solid core here would fill the gaps and make the line look solid. */
+      if (Array.isArray(e.dashes)) ctx.setLineDash(e.dashes);
+      else if (e.dashes === true) ctx.setLineDash([6, 6]);
+      else ctx.setLineDash([]);
+      for (var p = 0; p < EDGE_GLOW_PASSES; p++) ctx.stroke();
+      ctx.restore();
+    });
+  }
+
   function drawBentEdges(ctx) {
     if (!ctx || !network) return;
     var selectedEdges = {};
@@ -2437,8 +2483,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       ctx.beginPath();
       ctx.moveTo(ep.A.x, ep.A.y);
       ctx.quadraticCurveTo(C.x, C.y, ep.B.x, ep.B.y);
-      ctx.strokeStyle = sel ? "#e85a4f" : "#8a94a6";
-      ctx.lineWidth = sel ? EDGE_WIDTH_SELECTED : EDGE_WIDTH;
+      ctx.strokeStyle = sel ? EDGE_GLOW_COLOR : "#8a94a6";
+      ctx.lineWidth = EDGE_WIDTH;   /* selection shows as a glow, not extra width */
       ctx.lineCap = "round";
       if (Array.isArray(e.dashes)) ctx.setLineDash(e.dashes);
       else if (e.dashes === true) ctx.setLineDash([6, 6]);
@@ -2758,13 +2804,12 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
             our own beforeDrawing hook as quadratic Beziers (vis-network's
             stroke is hidden on those by setting per-edge color transparent). */
         smooth: { enabled: true, type: "continuous", roundness: 0.12 },
-        /*  Edge widths. vis-network's `selectionWidth` is ADDITIVE on top of
-            `width`, so total selected stroke = EDGE_WIDTH + (selectionWidth)
-            = EDGE_WIDTH_SELECTED. Our custom Bezier renderer for bent edges
-            uses the same effective totals so highlight reads identically
-            across all edges. */
+        /*  Constant width — selecting an edge does NOT thicken it (selectionWidth
+            0). Instead it turns red (color.highlight) and gets a soft red halo
+            painted under it by drawSelectedEdgeGlow, matching the bent-edge
+            renderer. */
         width: EDGE_WIDTH,
-        selectionWidth: EDGE_WIDTH_SELECTED - EDGE_WIDTH,
+        selectionWidth: 0,
         /*  Word-wrap long edge labels. Width is tuned for typical attack-
             path node sizes — wide nodes like "Domain Admin" leave only
             ~160 px of free space between them at LEVEL_STEP=380, so the
@@ -2806,11 +2851,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     /*  beforeDrawing layer order (bottom → top):
           1) Dot grid          — engineering-paper backdrop, scales with zoom
           2) Master aura       — soft red glow sits under everything
-          3) Bent edges        — curves go behind nodes
+          3) Selected-edge glow— red halo under the selected line
+          4) Bent edges        — curves go behind nodes
         Then vis-network draws straight edges + nodes on top of all this. */
     network.on("beforeDrawing", function (ctx) {
       drawDotGrid(ctx);
       drawMasterAura(ctx);
+      drawSelectedEdgeGlow(ctx);
       drawBentEdges(ctx);
     });
 
