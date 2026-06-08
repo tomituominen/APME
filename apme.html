@@ -85,6 +85,17 @@
   #toolbar button:active {
     background: #2a2f39;
   }
+  #toolbar select {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  #toolbar select:hover { background: #343a47; border-color: #4a525f; }
   #toolbar .spacer { flex: 1 1 auto; }
   #toolbar label.toggle {
     display: flex;
@@ -401,6 +412,7 @@
     <button id="btn-new" title="New graph (clear the canvas)">New</button>
     <button id="btn-open" title="Open graph — pick a Mermaid .md/.mmd file">Open</button>
     <button id="btn-save" title="Save graph (⌘/Ctrl+S) — choose a filename; overwrites the opened file where supported. Shift adds Save As.">Save</button>
+    <select id="curve-select" title="Line curve style written into the saved Mermaid diagram (the editor preview is unaffected)"></select>
     <input id="file-input" type="file" accept=".md,.mmd,.mermaid,text/markdown,text/plain">
   </div>
   <div id="canvas-wrap">
@@ -541,6 +553,14 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       unaffected. Lines render light grey, slightly thinner than the editor. */
   var EXPORT_EDGE_WIDTH = 7.5;
   var EXPORT_EDGE_COLOR = "#cccccc";
+  /*  Mermaid line-curve styles offered in the toolbar dropdown. exportMermaid
+      writes the chosen one into a `%%{init flowchart.curve}%%` directive; it
+      only affects how the SAVED diagram renders (GitHub/mermaid.live), not the
+      editor. "bumpX" is the default — a horizontal-bias bezier that meets nodes
+      cleanly on the left↔right flow. */
+  var CURVE_TYPES = ["basis", "linear", "bumpX", "bumpY", "cardinal",
+    "catmullRom", "monotoneX", "monotoneY", "natural", "step", "stepAfter", "stepBefore"];
+  var EXPORT_CURVE = "bumpX";
   var statusTimer = null;
   /*  Id of the node the mouse is currently hovering (or null). Its connected
       edges get the same glow as a selected line — see drawSelectedEdgeGlow. */
@@ -3205,11 +3225,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
     var dir = (layoutDirection === "LR" ? "LR" : "RL");
     var body = [];
-    /*  Use a curve that PASSES THROUGH its endpoints so links meet nodes
-        cleanly (Mermaid's default "basis" only approximates them, leaving a
-        small gap). "bumpX" is a horizontal-bias bezier that suits the LR/RL
-        flow and reaches nodes without overshooting. */
-    body.push("%%{init: {\"flowchart\": {\"curve\": \"bumpX\"}}}%%");
+    /*  Curve style for the rendered diagram, chosen via the toolbar dropdown
+        (EXPORT_CURVE). Mermaid's default "basis" only approximates its
+        endpoints (lines stop short of nodes); the offered curves pass through
+        them. Our loader ignores this %% directive. */
+    body.push("%%{init: {\"flowchart\": {\"curve\": \"" + EXPORT_CURVE + "\"}}}%%");
     body.push("%% APM-DATA: " + JSON.stringify(meta));
     body.push("flowchart " + dir);
 
@@ -3595,8 +3615,21 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     return out;
   }
 
+  /*  Point EXPORT_CURVE (and the toolbar dropdown) at a curve name if it's one
+      we offer. Used on import so re-saving keeps the file's curve. */
+  function setExportCurve(name) {
+    if (CURVE_TYPES.indexOf(name) < 0) return;
+    EXPORT_CURVE = name;
+    var sel = document.getElementById("curve-select");
+    if (sel) sel.value = name;
+  }
+
   function loadMermaid(text, filename) {
     var body = stripMermaidFence(text);
+    /*  Adopt the curve from the file's init directive, if present, so the
+        dropdown reflects it and a re-save preserves it. */
+    var cm = /"curve"\s*:\s*"([A-Za-z]+)"/.exec(body);
+    if (cm) setExportCurve(cm[1]);
     var meta = extractAPMData(body);
     var parsed;
     try {
@@ -4437,6 +4470,22 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     document.getElementById("btn-open").addEventListener("click", openGraph);
     document.getElementById("btn-save").addEventListener("click", function () { saveMermaid(); });
     document.getElementById("file-input").addEventListener("change", onFileChosen);
+
+    /*  Curve-style dropdown: populate from CURVE_TYPES, default to the current
+        EXPORT_CURVE, and update EXPORT_CURVE on change. */
+    var curveSel = document.getElementById("curve-select");
+    if (curveSel) {
+      CURVE_TYPES.forEach(function (c) {
+        var o = document.createElement("option");
+        o.value = c; o.textContent = c;
+        if (c === EXPORT_CURVE) o.selected = true;
+        curveSel.appendChild(o);
+      });
+      curveSel.addEventListener("change", function () {
+        if (CURVE_TYPES.indexOf(curveSel.value) >= 0) EXPORT_CURVE = curveSel.value;
+      });
+    }
+
     document.addEventListener("keydown", onKeyDown);
 
     /* Warn before discarding unsaved work. */

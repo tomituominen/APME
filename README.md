@@ -110,11 +110,12 @@ pasting from `mermaid.live` or hand-written diagrams.
 
 ## Toolbar
 
-| Button       | What it does                                                |
+| Control      | What it does                                                |
 | ------------ | ----------------------------------------------------------- |
 | **New**      | Clear the canvas                                            |
 | **Open**     | Open a Mermaid `.md` / `.mmd` / `.mermaid` file             |
 | **Save**     | Save the graph (also **⌘/Ctrl+S**); **Shift** = Save As     |
+| **Curve ▾**  | Line-curve style written into the saved Mermaid (`bumpX` default). Only affects how the saved file renders elsewhere (GitHub/mermaid.live), not the editor. Opening a file adopts its curve. |
 
 Save and Open use the browser's native file dialogs via the **File System
 Access API** where available (Chromium served over `localhost`/HTTPS): you
