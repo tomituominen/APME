@@ -529,11 +529,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       no longer THICKENS the line — it adds a red glow instead (see
       EDGE_GLOW_* and drawSelectedEdgeGlow), so the width is constant. */
   var EDGE_WIDTH = 10;
-  /*  Selected-edge glow: the line stays its normal width and turns red, with
-      a soft red halo painted under it (canvas shadow). Brick red
-      (rgb 183,76,82, sampled from red.png) so the glow matches the brand red.
-      color.highlight reuses this so the line core matches. */
-  var EDGE_GLOW_COLOR = "#b74c52";
+  /*  Selected-edge glow: the line keeps its normal width and gets a soft halo
+      painted under it (canvas shadow). Light grey so the selection reads as a
+      subtle highlight rather than a colour change. color.highlight reuses this
+      so the line core matches. */
+  var EDGE_GLOW_COLOR = "#cccccc";
   var EDGE_GLOW_BLUR = 18;     /* screen px of halo spread */
   var EDGE_GLOW_PASSES = 3;    /* stroke repeats to intensify the glow */
   /*  Saved Mermaid line styling, emitted as a `linkStyle default` directive
