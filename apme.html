@@ -2494,9 +2494,15 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   function drawBentEdges(ctx) {
     if (!ctx || !network) return;
-    var selectedEdges = {};
+    /*  An edge's core lightens to the glow colour when it's selected OR
+        connected to the hovered node — so hovered bent edges match selected
+        ones (vis only recolours STRAIGHT edges on hover; we own bent ones). */
+    var highlighted = {};
     try {
-      (network.getSelectedEdges() || []).forEach(function (id) { selectedEdges[id] = true; });
+      (network.getSelectedEdges() || []).forEach(function (id) { highlighted[id] = true; });
+      if (hoverNodeId != null) {
+        (network.getConnectedEdges(hoverNodeId) || []).forEach(function (id) { highlighted[id] = true; });
+      }
     } catch (err) {}
     edges.forEach(function (e) {
       if (!e._bend) return;
@@ -2504,7 +2510,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       var ep = endpointPositions(e);
       if (!ep) return;
       var C = paramToAbs(ep.A, ep.B, e._bend);
-      var sel = !!selectedEdges[e.id];
+      var sel = !!highlighted[e.id];
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(ep.A.x, ep.A.y);
@@ -2807,7 +2813,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
            kept in the data and in Mermaid's `---` direction, but the
            rendering shows plain undirected lines. */
         arrows: { to: { enabled: false }, from: { enabled: false }, middle: { enabled: false } },
-        color: { color: "#8a94a6", highlight: EDGE_GLOW_COLOR, hover: "#c8d0dd" },
+        color: { color: "#8a94a6", highlight: EDGE_GLOW_COLOR, hover: EDGE_GLOW_COLOR },
         /*  Labels are drawn entirely by our own afterDrawing hook (see
             drawAllEdgeLabels). vis-network's label engine applies a hidden
             default offset on top of `vadjust` that depends on label height,
@@ -2854,10 +2860,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
             selectNodes() calls pass highlightEdges=false to match this for
             programmatic selection. */
         selectConnectedEdges: false,
-        /*  Don't let vis recolour a hovered node's connected edges — we draw
-            our own glow on them instead (see hoverNode handler +
-            drawSelectedEdgeGlow), so the hover highlight matches selection. */
-        hoverConnectedEdges: false
+        /*  Hovering a node SHOULD highlight its connected edges — we want them
+            to look exactly like a selected line: vis recolours the edge core to
+            color.hover (= the glow colour) and our hoverNode handler adds the
+            matching halo (see drawSelectedEdgeGlow). */
+        hoverConnectedEdges: true
       },
       /*  vis-network's in-canvas Add Node / Add Edge toolbar is disabled —
           the entire graph is driven by keyboard shortcuts (N, Tab, Enter,
