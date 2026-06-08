@@ -3207,9 +3207,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     var body = [];
     /*  Use a curve that PASSES THROUGH its endpoints so links meet nodes
         cleanly (Mermaid's default "basis" only approximates them, leaving a
-        small gap). "monotoneX" stays smooth and — unlike "natural" — never
-        overshoots the routing waypoints, so it doesn't go wavy on real graphs. */
-    body.push("%%{init: {\"flowchart\": {\"curve\": \"monotoneX\"}}}%%");
+        small gap). */
+    body.push("%%{init: {\"flowchart\": {\"curve\": \"cardinal\"}}}%%");
     body.push("%% APM-DATA: " + JSON.stringify(meta));
     body.push("flowchart " + dir);
 

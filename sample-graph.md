@@ -1,7 +1,7 @@
 # Attack Path Map
 
 ```mermaid
-%%{init: {"flowchart": {"curve": "monotoneX"}}}%%
+%%{init: {"flowchart": {"curve": "cardinal"}}}%%
 %% APM-DATA: {"v":1,"dir":"RL","master":"n2","pos":{"n2":[0,0],"n4":[-390,-227],"n5":[-390,-27],"n6":[-390,173],"n7":[-770,-235],"n8":[-770,65]},"bends":{"n2|n4":[-0.0741,0.3825],"n2|n5":[-0.0181,0.0348],"n2|n6":[-0.0486,-0.3349]},"notes":{"n5":"Important note about the asset","n7":"Important note about the user"}}
 flowchart RL
   n2(("Unwanted business outcome"))
