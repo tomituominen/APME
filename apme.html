@@ -528,8 +528,14 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       our custom Bezier renderer for bent edges. Keeping them in one place
       ensures the selection-highlight thickness is identical regardless of
       whether the line is curved by drag-to-bend or just smooth-natural. */
-  var EDGE_WIDTH = 5;
-  var EDGE_WIDTH_SELECTED = 10;
+  var EDGE_WIDTH = 10;
+  var EDGE_WIDTH_SELECTED = 20;
+  /*  Lines are drawn THICKER in the saved Mermaid than in the editor: a
+      GitHub-rendered diagram is usually viewed zoomed out, where the editor's
+      width reads thin. Emitted as a `linkStyle default stroke-width` directive
+      (see exportMermaid); our loader ignores linkStyle, so the round-trip is
+      unaffected. */
+  var EXPORT_EDGE_WIDTH = 20;
   var statusTimer = null;
 
   /*  Selection history. Whenever the selected node changes (user click,
@@ -3128,6 +3134,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         ? "|\"" + escapeMermaid(e.label) + "\"|" : "";
       body.push("  " + e.from + " " + connector + lab + " " + e.to);
     });
+
+    /*  Thicken every line for the rendered diagram. `linkStyle default` sets
+        stroke-width on all links; the dotted dasharray from `-.-` is set by
+        the link type itself, so dotted lines stay dotted — just thicker. */
+    if (edges.length > 0) {
+      body.push("  linkStyle default stroke-width:" + EXPORT_EDGE_WIDTH + "px;");
+    }
 
     /* Styles at the end keep the node/edge section easy to scan. */
     if (styleLines.length > 0) {
