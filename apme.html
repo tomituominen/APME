@@ -2449,7 +2449,21 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         var C = paramToAbs(ep.A, ep.B, e._bend);
         ctx.quadraticCurveTo(C.x, C.y, ep.B.x, ep.B.y);
       } else {
-        ctx.lineTo(ep.B.x, ep.B.y);
+        /*  A non-bent edge is drawn by vis-network as a quadratic through a
+            computed "via" point (smooth: continuous), NOT a straight chord —
+            so trace the same curve, else the glow diverges from the line and
+            shows as a second stroke. Fall back to a chord if the via isn't
+            available. */
+        var via = null;
+        try {
+          var be = network.body.edges[id];
+          if (be && be.edgeType && typeof be.edgeType.getViaNode === "function") via = be.edgeType.getViaNode();
+        } catch (err) {}
+        if (via && typeof via.x === "number" && typeof via.y === "number") {
+          ctx.quadraticCurveTo(via.x, via.y, ep.B.x, ep.B.y);
+        } else {
+          ctx.lineTo(ep.B.x, ep.B.y);
+        }
       }
       ctx.strokeStyle = EDGE_GLOW_COLOR;
       ctx.shadowColor = EDGE_GLOW_COLOR;
