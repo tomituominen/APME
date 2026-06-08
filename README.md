@@ -47,13 +47,15 @@ Saved files are Markdown with a fenced Mermaid block:
 # Attack Path Map
 
 ```mermaid
-%% APM-DATA: {"v":1,"dir":"RL","pos":{...},"bends":{...},"notes":{...}}
+%%{init: {"flowchart": {"curve": "bumpX"}}}%%
+%% APM-DATA: {"v":1,"dir":"RL","master":"m","pos":{...},"bends":{...},"notes":{...}}
 flowchart RL
   m(("Master"))
   a["Phishing email"]
   b["Foothold"]
   m --- a
   a ---|"creds"| b
+  linkStyle default stroke:#cccccc,stroke-width:7.5px;
 
   style a fill:#3a7a4a,stroke:#6b9b77,color:#ecf0f6
 ```
@@ -65,8 +67,11 @@ What's standard Mermaid vs. APM-specific:
   cylinder, `(("label"))` circle (the master is always a circle, recorded by
   id in `APM-DATA.master` so a regular circle isn't mistaken for it),
   edges (`---` solid, `-.-` dotted, `|"label"|` annotation), `style` directives
-  for fill colours. Anything in the body renders identically in any Mermaid
-  viewer (GitHub, mermaid.live, etc.).
+  for fill colours, a `linkStyle default` for line colour + width, and an
+  `%%{init: {flowchart: {curve}}}%%` directive for the line-curve style (chosen
+  in the toolbar). Anything in the body renders identically in any Mermaid
+  viewer (GitHub, mermaid.live, etc.); on re-import the loader reads the curve
+  back into the dropdown and ignores `linkStyle`.
 - **APM-DATA comment**: a single `%% APM-DATA: { ... JSON ... }` line carries
   the bits Mermaid can't represent — absolute node positions, parametric edge
   bends, hover notes. Mermaid (and GitHub's renderer) ignore `%%` lines, so
@@ -118,17 +123,7 @@ viewport, **A** runs auto layout (un-pin everything, reflow, fit).
 - Rendering engine: [vis-network](https://github.com/visjs/vis-network) (v9.x,
   minified copy inlined in the HTML — no external requests at runtime).
 - Custom drawing layers (in `beforeDrawing` / `afterDrawing` canvas hooks):
-  dot grid backdrop, master aura, bent edges, node gradient/highlight pass,
-  edge labels, folded-corner note indicators.
+  dot grid backdrop, master aura, selection/hover edge glow, bent edges, node
+  gradient/highlight pass, database cylinders, soft note glow on noted nodes,
+  and edge labels.
 - No build step. Edit the HTML in place; refresh the browser.
-
-## File layout
-
-```
-apme.html          # the whole tool
-README.md          # this file
-sample-graph.md    # example attack path map
-.gitignore
-```
-
-That's it — one file. Move it anywhere.
