@@ -1903,6 +1903,36 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     return best;
   }
 
+  /*  Edge under the cursor for HOVER purposes. Unlike findEdgeAt (used by the
+      bend gesture, which is happy to grab a bent edge from its old straight
+      path too), this only counts a bent edge when the cursor is near its
+      VISIBLE Bezier — so the hover highlight follows the drawn curve, not the
+      original straight location. Straight edges defer to vis-network, whose
+      hit-test matches their rendered line. */
+  function hoverEdgeAt(domPt, canvasPt) {
+    if (!network) return null;
+    var id = null;
+    try { id = network.getEdgeAt(domPt); } catch (e) {}
+    if (id != null) {
+      var e0 = edges.get(id);
+      if (e0 && !e0._bend) return id;   /* straight edge — vis's hit is correct */
+      /* bent edge matched on its straight path → ignore; test the curve below */
+    }
+    var scale = 1;
+    try { scale = network.getScale() || 1; } catch (e) {}
+    var threshold = 30 / scale;
+    var best = null, bestDist = Infinity;
+    edges.forEach(function (ed) {
+      if (!ed._bend) return;
+      var ep = endpointPositions(ed);
+      if (!ep) return;
+      var C = paramToAbs(ep.A, ep.B, ed._bend);
+      var d = curveDistance(ep.A, ep.B, C, canvasPt, 60);
+      if (d < threshold && d < bestDist) { bestDist = d; best = ed.id; }
+    });
+    return best;
+  }
+
   /*  setEdgeBend takes an ABSOLUTE control-point position (or null to
       un-bend). It converts to parametric storage internally so the bend
       tracks endpoint movement. */
@@ -2972,16 +3002,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       if (nc) nc.classList.remove("hover-node");
       if (hoverNodeId != null) { hoverNodeId = null; try { network.redraw(); } catch (e) {} }
     });
-    network.on("hoverEdge", function (params) {
-      if (nc) nc.classList.add("hover-edge");
-      /*  Glow the hovered edge, same as a selected line. */
-      hoverEdgeId = params && params.edge != null ? params.edge : null;
-      try { network.redraw(); } catch (e) {}
-    });
-    network.on("blurEdge",  function () {
-      if (nc) nc.classList.remove("hover-edge");
-      if (hoverEdgeId != null) { hoverEdgeId = null; try { network.redraw(); } catch (e) {} }
-    });
+    /*  NB: edge hover is NOT driven by vis-network's hoverEdge/blurEdge —
+        those hit-test an edge's straight path, which is wrong for a bent edge
+        (the highlight would trigger over the original line, not the visible
+        curve). Instead the geometry-aware mousemove handler below sets
+        hoverEdgeId via hoverEdgeAt. */
     /*  Dragging the viewport (pan) should read as grabbing; clear the
         hover markers during a drag so they don't override it. */
     network.on("dragStart", function () {
@@ -3079,6 +3104,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         Throttled to once per animation frame to keep findEdgeAt cheap. */
     if (nc && !nc._aptHoverBound) {
       var hoverRaf = 0;
+      function setHoverEdge(eid) {
+        if (eid !== hoverEdgeId) { hoverEdgeId = eid; try { network.redraw(); } catch (e) {} }
+      }
       nc.addEventListener("mousemove", function (e) {
         if (edgeBend) return;
         if (hoverRaf) return;
@@ -3087,14 +3115,24 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
           if (edgeBend) return;
           var r = nc.getBoundingClientRect();
           var dp = { x: e.clientX - r.left, y: e.clientY - r.top };
+          /*  Over a node? leave edge cursor/glow alone — vis handles the node
+              cursor (.hover-node) and its connected-edge glow via hoverNode. */
+          var nodeUnder = null;
+          try { nodeUnder = network.getNodeAt(dp); } catch (err) {}
+          if (nodeUnder != null) { nc.style.cursor = ""; setHoverEdge(null); return; }
           var cp;
           try { cp = network.DOMtoCanvas(dp); } catch (err) { return; }
-          var eid = findEdgeAt(dp, cp);
-          var hit = eid && edges.get(eid);
-          /*  Use 'grab' over any edge so straight lines are also obviously
-              draggable-to-bend. */
-          nc.style.cursor = hit ? "grab" : "";
+          /*  Geometry-aware pick: hover highlight + grab cursor follow the
+              VISIBLE line/curve (see hoverEdgeAt), so a bent edge lights up
+              over its drawn curve, not its original straight path. */
+          var eid = hoverEdgeAt(dp, cp) || null;
+          nc.style.cursor = eid ? "grab" : "";
+          setHoverEdge(eid);
         });
+      });
+      nc.addEventListener("mouseleave", function () {
+        nc.style.cursor = "";
+        setHoverEdge(null);
       });
       nc._aptHoverBound = true;
     }
