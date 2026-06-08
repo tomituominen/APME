@@ -542,7 +542,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var EXPORT_EDGE_WIDTH = 7.5;
   var EXPORT_EDGE_COLOR = "#cccccc";
   var statusTimer = null;
-  var statusTimer = null;
+  /*  Id of the node the mouse is currently hovering (or null). Its connected
+      edges get the same glow as a selected line — see drawSelectedEdgeGlow. */
+  var hoverNodeId = null;
 
   /*  Selection history. Whenever the selected node changes (user click,
       arrow-key nav, programmatic selectNodes), we record the prior node
@@ -2426,21 +2428,28 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     });
   }
 
-  /*  Soft red halo under every selected edge — the selection cue (replaces the
-      old thick-line highlight). Traced along the edge's path: the quadratic
-      Bezier for bent edges, the straight chord otherwise. Drawn in
-      beforeDrawing (behind the crisp line vis/drawBentEdges paint on top, and
-      behind the nodes) so it reads as a glow hugging the line. The halo itself
-      comes from the canvas shadow, so the visible width stays EDGE_WIDTH. */
+  /*  Soft halo under an edge — the highlight cue (replaces the old thick-line
+      highlight and vis's hover recolour). Applied to every SELECTED edge and
+      to every edge CONNECTED TO THE HOVERED NODE, so hovering a node lights up
+      its lines with the same glow as selecting one. Traced along the edge's
+      path: the quadratic Bezier for bent edges, vis's via-point curve
+      otherwise. Drawn in beforeDrawing (behind the crisp line vis/drawBentEdges
+      paint on top, and behind the nodes) so it reads as a glow hugging the
+      line. The halo comes from the canvas shadow, so the width stays
+      EDGE_WIDTH. */
   function drawSelectedEdgeGlow(ctx) {
     if (!ctx || !network) return;
-    var selIds;
-    try { selIds = network.getSelectedEdges() || []; } catch (e) { return; }
-    if (selIds.length === 0) return;
+    var idSet = {};
+    try { (network.getSelectedEdges() || []).forEach(function (id) { idSet[id] = true; }); } catch (e) {}
+    if (hoverNodeId != null) {
+      try { (network.getConnectedEdges(hoverNodeId) || []).forEach(function (id) { idSet[id] = true; }); } catch (e) {}
+    }
+    var ids = Object.keys(idSet);
+    if (ids.length === 0) return;
     var scale = 1;
     try { scale = network.getScale() || 1; } catch (e) {}
     if (!(scale > 0)) scale = 1;
-    selIds.forEach(function (id) {
+    ids.forEach(function (id) {
       var e = edges.get(id);
       if (!e) return;
       var ep = endpointPositions(e);
@@ -2839,12 +2848,16 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         navigationButtons: false,
         keyboard: { enabled: false },
         /*  Selecting (or creating) a NODE must not highlight its connected
-            edges — otherwise the red selection glow lights up a node's edges
-            (two lines for a mid-chain node) when the user only added/selected
-            a node. The glow is reserved for explicitly selecting a line. Our
+            edges — otherwise the selection glow lights up a node's edges (two
+            lines for a mid-chain node) when the user only added/selected a
+            node. The glow is reserved for explicitly selecting a line. Our
             selectNodes() calls pass highlightEdges=false to match this for
             programmatic selection. */
-        selectConnectedEdges: false
+        selectConnectedEdges: false,
+        /*  Don't let vis recolour a hovered node's connected edges — we draw
+            our own glow on them instead (see hoverNode handler +
+            drawSelectedEdgeGlow), so the hover highlight matches selection. */
+        hoverConnectedEdges: false
       },
       /*  vis-network's in-canvas Add Node / Add Edge toolbar is disabled —
           the entire graph is driven by keyboard shortcuts (N, Tab, Enter,
@@ -2921,14 +2934,23 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         active-gesture classes (edge-bending / adding-edge) because those
         rules carry !important and outrank these. */
     var nc = document.getElementById("network");
-    network.on("hoverNode", function () { if (nc) nc.classList.add("hover-node"); });
-    network.on("blurNode",  function () { if (nc) nc.classList.remove("hover-node"); });
+    network.on("hoverNode", function (params) {
+      if (nc) nc.classList.add("hover-node");
+      /*  Glow the hovered node's connected edges (see drawSelectedEdgeGlow). */
+      hoverNodeId = params && params.node != null ? params.node : null;
+      try { network.redraw(); } catch (e) {}
+    });
+    network.on("blurNode",  function () {
+      if (nc) nc.classList.remove("hover-node");
+      if (hoverNodeId != null) { hoverNodeId = null; try { network.redraw(); } catch (e) {} }
+    });
     network.on("hoverEdge", function () { if (nc) nc.classList.add("hover-edge"); });
     network.on("blurEdge",  function () { if (nc) nc.classList.remove("hover-edge"); });
     /*  Dragging the viewport (pan) should read as grabbing; clear the
         hover markers during a drag so they don't override it. */
     network.on("dragStart", function () {
       if (nc) { nc.classList.remove("hover-node"); nc.classList.remove("hover-edge"); }
+      if (hoverNodeId != null) { hoverNodeId = null; try { network.redraw(); } catch (e) {} }
     });
 
     /*  Track selection changes so Del can return focus to the previously
