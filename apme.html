@@ -68,34 +68,30 @@
     display: inline-block;
     box-shadow: 0 0 8px rgba(230, 233, 239, 0.55);
   }
-  #toolbar button {
+  /*  Buttons and the curve dropdown share one box model so they line up at the
+      same height (native <select> and <button> differ otherwise). */
+  #toolbar button,
+  #toolbar select {
+    box-sizing: border-box;
+    height: 32px;
     background: var(--panel-2);
     color: var(--text);
     border: 1px solid var(--border);
     border-radius: 4px;
-    padding: 6px 12px;
+    padding: 0 12px;
     font-size: 13px;
+    line-height: 1;
     cursor: pointer;
     transition: background 0.12s, border-color 0.12s;
   }
-  #toolbar button:hover {
+  #toolbar button:hover,
+  #toolbar select:hover {
     background: #343a47;
     border-color: #4a525f;
   }
   #toolbar button:active {
     background: #2a2f39;
   }
-  #toolbar select {
-    background: var(--panel-2);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 6px 8px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background 0.12s, border-color 0.12s;
-  }
-  #toolbar select:hover { background: #343a47; border-color: #4a525f; }
   #toolbar .spacer { flex: 1 1 auto; }
   #toolbar label.toggle {
     display: flex;

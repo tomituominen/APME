@@ -9,21 +9,6 @@ Markdown code block so committed files render as a diagram on GitHub.
 open apme.html
 ```
 
-## What you get
-
-- Generic directed graph editor: a **master** node (red circle) plus arbitrary
-  child nodes (rounded boxes) connected by lines.
-- Per-node fill colour (8-swatch palette).
-- Per-node hover notes — folded-corner glyph signals which nodes have one;
-  hover the node to read it.
-- Per-edge labels, solid/dotted styles, and parametric Bezier bends.
-- BFS-based auto-layout that's aware of node widths and edge label widths so
-  long labels never collide with wide nodes.
-- Auto layout (**A** key): un-pins every manual drag, re-runs the layout, and
-  animates nodes to their new slots.
-- Save → `.md` with a fenced ` ```mermaid ` block. GitHub renders it as a
-  diagram; the tool reloads it with full fidelity.
-
 ## Keyboard shortcuts
 
 | Key             | Action                                          |
