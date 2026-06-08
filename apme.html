@@ -530,15 +530,18 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       EDGE_GLOW_* and drawSelectedEdgeGlow), so the width is constant. */
   var EDGE_WIDTH = 10;
   /*  Selected-edge glow: the line stays its normal width and turns red, with
-      a soft red halo painted under it (canvas shadow). */
-  var EDGE_GLOW_COLOR = "#e85a4f";
+      a soft red halo painted under it (canvas shadow). Uses the palette red
+      (same as the master / red nodes) so the selection matches the red
+      elements rather than a one-off orange-red. */
+  var EDGE_GLOW_COLOR = "#b3434a";
   var EDGE_GLOW_BLUR = 18;     /* screen px of halo spread */
   var EDGE_GLOW_PASSES = 3;    /* stroke repeats to intensify the glow */
-  /*  Lines are drawn a bit thicker in the saved Mermaid than the editor's
-      on-screen width, emitted as a `linkStyle default stroke-width` directive
+  /*  Saved Mermaid line styling, emitted as a `linkStyle default` directive
       (see exportMermaid); our loader ignores linkStyle, so the round-trip is
-      unaffected. */
-  var EXPORT_EDGE_WIDTH = 10;
+      unaffected. Lines render light grey, slightly thinner than the editor. */
+  var EXPORT_EDGE_WIDTH = 7.5;
+  var EXPORT_EDGE_COLOR = "#cccccc";
+  var statusTimer = null;
   var statusTimer = null;
 
   /*  Selection history. Whenever the selected node changes (user click,
@@ -2795,7 +2798,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
            kept in the data and in Mermaid's `---` direction, but the
            rendering shows plain undirected lines. */
         arrows: { to: { enabled: false }, from: { enabled: false }, middle: { enabled: false } },
-        color: { color: "#8a94a6", highlight: "#e85a4f", hover: "#c8d0dd" },
+        color: { color: "#8a94a6", highlight: EDGE_GLOW_COLOR, hover: "#c8d0dd" },
         /*  Labels are drawn entirely by our own afterDrawing hook (see
             drawAllEdgeLabels). vis-network's label engine applies a hidden
             default offset on top of `vadjust` that depends on label height,
@@ -3203,11 +3206,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       body.push("  " + e.from + " " + connector + lab + " " + e.to);
     });
 
-    /*  Thicken every line for the rendered diagram. `linkStyle default` sets
-        stroke-width on all links; the dotted dasharray from `-.-` is set by
-        the link type itself, so dotted lines stay dotted — just thicker. */
+    /*  Style every line for the rendered diagram. `linkStyle default` sets the
+        stroke colour + width on all links; the dotted dasharray from `-.-` is
+        set by the link type itself, so dotted lines stay dotted. */
     if (edges.length > 0) {
-      body.push("  linkStyle default stroke-width:" + EXPORT_EDGE_WIDTH + "px;");
+      body.push("  linkStyle default stroke:" + EXPORT_EDGE_COLOR + ",stroke-width:" + EXPORT_EDGE_WIDTH + "px;");
     }
 
     /* Styles at the end keep the node/edge section easy to scan. */

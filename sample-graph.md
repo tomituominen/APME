@@ -15,7 +15,7 @@ flowchart RL
   n4 -.- n7
   n5 --- n8
   n6 --- n8
-  linkStyle default stroke-width:10px;
+  linkStyle default stroke:#cccccc,stroke-width:7.5px;
 
   style n2 fill:#b3434a,stroke:#c67277,color:#ecf0f6
   style n4 fill:#3a7a4a,stroke:#6b9b77,color:#ecf0f6
