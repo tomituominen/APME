@@ -230,6 +230,42 @@
     opacity: 1;
     transform: translateY(0);
   }
+  /* === Crash-recovery banner (non-modal) === */
+  #recovery-banner {
+    position: fixed;
+    top: 64px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(92vw, 560px);
+    background: rgba(20, 23, 28, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-left: 3px solid var(--master, #b3434a);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 13px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  }
+  #recovery-banner .rb-msg { line-height: 1.35; }
+  #recovery-banner .rb-sub { color: var(--text-dim); font-size: 11px; }
+  #recovery-banner button {
+    font: inherit;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: #2a2f37;
+    color: var(--text);
+    cursor: pointer;
+    flex: 0 0 auto;
+  }
+  #recovery-banner button:hover { background: #343b45; }
+  #recovery-banner button.rb-primary { background: #3a6385; border-color: #7ab2dc; }
+  #recovery-banner button.rb-primary:hover { background: #44719a; }
   /* === Inline label editor === */
   #inline-editor {
     position: absolute;
@@ -556,6 +592,142 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   function hasUnsavedChanges() {
     if (nodes.length === 0 && edges.length === 0) return false;
     try { return exportMermaid() !== lastSavedSignature; } catch (e) { return true; }
+  }
+
+  /* ===========================================================================
+     AUTO-SAVE & CRASH RECOVERY
+     The working graph is mirrored to localStorage so a browser crash, an
+     accidental tab close, or power loss can't lose unsaved work.
+
+     - Payload = exportMermaid() — byte-for-byte what Save writes — so a
+       recovered draft round-trips losslessly (positions, bends, notes,
+       colours, curve, direction).
+     - Writes are debounced ~800 ms after any change (DataSet edits, drags,
+       curve change) and flushed when the tab is hidden/closed, so at most a
+       second of work is ever at risk.
+     - A draft is kept ONLY while the graph differs from the last Save/Open/New
+       baseline (reusing lastSavedSignature); the moment it matches — or the
+       canvas empties — the draft is removed, so a stale draft can never shadow
+       a saved file.
+     - On startup a surviving draft (i.e. there WAS unsaved work at last exit)
+       is offered for one-click recovery (see DOMContentLoaded).
+     =========================================================================== */
+  var AUTOSAVE_KEY = "apme:autosave:v1";
+  var AUTOSAVE_DEBOUNCE_MS = 800;
+  var _autosaveTimer = null;
+  /*  Re-entrancy guard: exportMermaid() calls storePositions(), which fires
+      DataSet events — without this, our own write would re-trigger us. */
+  var _autosaveBusy = false;
+
+  function autosaveAvailable() {
+    try { return typeof localStorage !== "undefined" && !!localStorage; }
+    catch (e) { return false; }   /* access itself can throw in locked-down contexts */
+  }
+
+  function writeAutosaveNow() {
+    _autosaveTimer = null;
+    if (!autosaveAvailable()) return;
+    _autosaveBusy = true;
+    try {
+      if (nodes.length === 0 && edges.length === 0) {
+        localStorage.removeItem(AUTOSAVE_KEY);          /* nothing to recover */
+      } else {
+        var md = exportMermaid();
+        if (md === lastSavedSignature) {
+          localStorage.removeItem(AUTOSAVE_KEY);        /* matches the saved file → no draft needed */
+        } else {
+          localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
+            v: 1, mermaid: md, filename: lastFilename || null, savedAt: Date.now()
+          }));
+        }
+      }
+    } catch (e) {
+      /* QuotaExceeded / disabled storage / serialisation issue — autosave is a
+         safety net, never a blocker, so failures are swallowed. */
+    } finally {
+      _autosaveBusy = false;
+    }
+  }
+
+  function scheduleAutosave() {
+    if (_autosaveBusy || !autosaveAvailable()) return;
+    if (_autosaveTimer) clearTimeout(_autosaveTimer);
+    _autosaveTimer = setTimeout(writeAutosaveNow, AUTOSAVE_DEBOUNCE_MS);
+  }
+
+  /*  Immediate write for tab-hide/close, where a pending debounce might never
+      get a chance to fire. */
+  function flushAutosave() {
+    if (_autosaveTimer) { clearTimeout(_autosaveTimer); _autosaveTimer = null; }
+    writeAutosaveNow();
+  }
+
+  function removeAutosave() {
+    if (_autosaveTimer) { clearTimeout(_autosaveTimer); _autosaveTimer = null; }
+    if (!autosaveAvailable()) return;
+    try { localStorage.removeItem(AUTOSAVE_KEY); } catch (e) {}
+  }
+
+  function readAutosave() {
+    if (!autosaveAvailable()) return null;
+    try {
+      var raw = localStorage.getItem(AUTOSAVE_KEY);
+      if (!raw) return null;
+      var d = JSON.parse(raw);
+      if (d && typeof d.mermaid === "string" && d.mermaid.length > 0) return d;
+    } catch (e) {}
+    return null;
+  }
+
+  /*  Non-blocking crash-recovery prompt: a small banner (NOT a modal) offering
+      to restore a draft that survived from a previous session. Built with
+      textContent for the dynamic bits (filename/time) so a crafted filename
+      can't inject markup. */
+  function showRecoveryBanner(draft) {
+    if (!draft || document.getElementById("recovery-banner")) return;
+    var when;
+    try { when = new Date(draft.savedAt).toLocaleString(); } catch (e) { when = "your last session"; }
+
+    var bar = document.createElement("div");
+    bar.id = "recovery-banner";
+
+    var msg = document.createElement("div");
+    msg.className = "rb-msg";
+    msg.textContent = "Recovered unsaved work" + (draft.filename ? (' of "' + draft.filename + '"') : "");
+    var sub = document.createElement("span");
+    sub.className = "rb-sub";
+    sub.textContent = "autosaved " + when;
+    msg.appendChild(document.createElement("br"));
+    msg.appendChild(sub);
+
+    var restore = document.createElement("button");
+    restore.type = "button";
+    restore.className = "rb-primary";
+    restore.textContent = "Restore";
+    var discard = document.createElement("button");
+    discard.type = "button";
+    discard.textContent = "Discard";
+
+    bar.appendChild(msg);
+    bar.appendChild(restore);
+    bar.appendChild(discard);
+    document.body.appendChild(bar);
+
+    function close() { if (bar.parentNode) bar.parentNode.removeChild(bar); }
+    restore.addEventListener("click", function () {
+      loadMermaid(draft.mermaid, draft.filename || undefined);
+      if (draft.filename) lastFilename = draft.filename;
+      /* Recovered work isn't in a file yet — keep it 'unsaved' so the
+         beforeunload guard still warns and the user is nudged to Save. */
+      lastSavedSignature = null;
+      close();
+      flashStatus("Recovered unsaved work — use Save to write it to a file");
+    });
+    discard.addEventListener("click", function () {
+      removeAutosave();
+      close();
+      flashStatus("Discarded recovered draft");
+    });
   }
 
   var EDGE_COLOR = "#8a94a6";  /* resting edge colour */
@@ -4561,11 +4733,33 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         curveSel.appendChild(o);
       });
       curveSel.addEventListener("change", function () {
-        if (CURVE_TYPES.indexOf(curveSel.value) >= 0) EXPORT_CURVE = curveSel.value;
+        if (CURVE_TYPES.indexOf(curveSel.value) >= 0) {
+          EXPORT_CURVE = curveSel.value;
+          scheduleAutosave();   /* curve lives in module state, not a DataSet */
+        }
       });
     }
 
     document.addEventListener("keydown", onKeyDown);
+
+    /* --- Auto-save: mirror every change to localStorage (see AUTO-SAVE section).
+       The DataSet "*" events cover node/edge add/remove/update — i.e. labels,
+       colours, shapes, notes, dotted toggles, bends, and (via storePositions on
+       dragEnd) positions. Hidden/closing tabs flush immediately. --- */
+    nodes.on("*", scheduleAutosave);
+    edges.on("*", scheduleAutosave);
+    window.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "hidden") flushAutosave();
+    });
+    window.addEventListener("pagehide", flushAutosave);
+
+    /* Crash recovery: if a draft survived (there was unsaved work at last exit),
+       surface a non-blocking banner offering Restore / Discard. Deferred via
+       setTimeout so the canvas paints first. */
+    (function () {
+      var draft = readAutosave();
+      if (draft) setTimeout(function () { showRecoveryBanner(draft); }, 0);
+    })();
 
     /* Warn before discarding GENUINELY unsaved work (changed since the last
        save / open / new) — not after a clean save or for no-op actions. */

@@ -154,6 +154,28 @@ next time).
 Fit and auto-layout are keyboard-only: **F** fits the graph to the
 viewport, **A** runs auto layout (un-pin everything, reflow, fit).
 
+## Auto-save & crash recovery
+
+The working graph is continuously mirrored to the browser's `localStorage`, so
+a crash, an accidental tab close, or a power loss can't destroy unsaved work —
+there's nothing to switch on.
+
+- The draft is written ~0.8 s after any change (and flushed immediately when
+  the tab is hidden or closed), so at most about a second of work is ever at
+  risk. The payload is the exact same Mermaid text **Save** writes, so a
+  recovered draft is loss-free (positions, bends, notes, colours, curve, and
+  direction all survive).
+- A draft is kept **only while there are unsaved changes**. The moment the
+  graph matches the last Save/Open/New, the draft is dropped — so a stale draft
+  never shadows a file you've already saved.
+- On the next launch, if a draft survived, a small banner offers **Restore** or
+  **Discard**. It's non-blocking — the canvas is usable behind it. Restored
+  work stays marked unsaved so you're nudged to **Save** it to a real file.
+- This is a safety net, not a substitute for saving: it lives in one browser
+  profile on one machine, holds a single most-recent draft, and is cleared by
+  **Discard** or by the browser clearing site data. If `localStorage` is
+  unavailable (e.g. locked-down private mode), auto-save silently does nothing.
+
 ## Notes on the implementation
 
 - Rendering engine: [vis-network](https://github.com/visjs/vis-network) (v9.x,
