@@ -726,12 +726,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     nextNodeId = max + 1;
   }
 
-  /*  The very first node in a graph is treated as the "master" / root and
-      rendered as a circle to set it apart visually. Persisted in DOT via
-      shape="circle". */
-  /*  The master/root node is always rendered as a red circle. The colour
-      is locked (the right-click colour picker is skipped for masters in
-      the oncontext handler). */
+  /*  The master / root node is identified by the `_master` flag (recorded in
+      the saved file's APM-DATA.master) and defaults to a red circle to set it
+      apart. Right-click lets you recolour it or add a note like any node; only
+      its shape is fixed (always a circle). MASTER_COLOUR is just the default
+      fill. */
   var MASTER_COLOUR = "#b3434a";
   function masterNodeProps() {
     return {
@@ -1277,11 +1276,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     return id;
   }
 
-  /* ---------- 16-colour palette + right-click picker ---------- */
-  /*  Curated 16 colours, all readable with white text. The first entry is the
-      tool's default node colour so picking it visually "resets" a node. */
-  /*  Eight visually distinct hues — enough to categorise nodes by phase /
-      severity / team without overwhelming the picker with near-duplicates. */
+  /*  Eight visually distinct hues, all readable with white text — enough to
+      categorise nodes by phase / severity / team without overwhelming the
+      picker. The first entry is the tool's default node colour, so picking it
+      visually "resets" a node. */
   /* ===========================================================================
      SECTION 7 · COLOUR PALETTE & PICKER
      The 8-swatch fill palette, hex helpers (lighten/normalise/colour-object),
@@ -2597,12 +2595,12 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     });
   }
 
-  /*  Note cue: a soft AMBER outer glow around any node that carries a
-      `_note`. Drawn behind the node (beforeDrawing) so the node paints
-      over the solid core and only the blurred halo shows around the
-      silhouette — works uniformly on box, circle and cylinder. The glow is
-      tinted to match each node's own outline, so a green node glows green, a
-      red node red, etc. (see noteGlowColor). */
+  /*  Note cue: a soft outer glow around any node that carries a `_note`.
+      Drawn in afterDrawing and clipped to the region OUTSIDE the node body
+      (so node drop shadows can't dim it and it never overpaints the node) —
+      works uniformly on box, circle and cylinder. The glow is tinted to each
+      node's own outline, so a green node glows green, a red node red, etc.
+      (see noteGlowColor). */
   var NOTE_GLOW_ALPHA = 0.8;          /* opacity of the tinted ring + halo */
   var NOTE_GLOW_BLUR  = 14;           /* screen px of halo spread */
   var NOTE_GLOW_RING  = 3;            /* screen px of the crisp ring stroke */
@@ -2857,7 +2855,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       },
       /*  vis-network's in-canvas Add Node / Add Edge toolbar is disabled —
           the entire graph is driven by keyboard shortcuts (N, Tab, Enter,
-          F2, Del, arrows) plus the inline editor and right-click pickers.
+          C, E, R, Del, arrows) plus the inline editor and right-click pickers.
           Node renames and edge labels are handled by our own doubleClick
           handler installed in initNetwork(). */
       manipulation: { enabled: false },
@@ -3040,7 +3038,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         Throttled to once per animation frame to keep findEdgeAt cheap. */
     if (nc && !nc._aptHoverBound) {
       var hoverRaf = 0;
+      /*  Set the hovered edge: brighten it (redraw) and toggle the .hover-edge
+          cursor class (grab), matching how vis drives .hover-node. */
       function setHoverEdge(eid) {
+        nc.classList.toggle("hover-edge", !!eid);
         if (eid !== hoverEdgeId) { hoverEdgeId = eid; try { network.redraw(); } catch (e) {} }
       }
       nc.addEventListener("mousemove", function (e) {
@@ -3051,25 +3052,20 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
           if (edgeBend) return;
           var r = nc.getBoundingClientRect();
           var dp = { x: e.clientX - r.left, y: e.clientY - r.top };
-          /*  Over a node? leave edge cursor/glow alone — vis handles the node
-              cursor (.hover-node) and its connected-edge glow via hoverNode. */
+          /*  Over a node? leave edge hover alone — vis handles the node cursor
+              (.hover-node) and brightens its connected edges via hoverNode. */
           var nodeUnder = null;
           try { nodeUnder = network.getNodeAt(dp); } catch (err) {}
-          if (nodeUnder != null) { nc.style.cursor = ""; setHoverEdge(null); return; }
+          if (nodeUnder != null) { setHoverEdge(null); return; }
           var cp;
           try { cp = network.DOMtoCanvas(dp); } catch (err) { return; }
-          /*  Geometry-aware pick: hover highlight + grab cursor follow the
+          /*  Geometry-aware pick: the highlight + grab cursor follow the
               VISIBLE line/curve (see hoverEdgeAt), so a bent edge lights up
               over its drawn curve, not its original straight path. */
-          var eid = hoverEdgeAt(dp, cp) || null;
-          nc.style.cursor = eid ? "grab" : "";
-          setHoverEdge(eid);
+          setHoverEdge(hoverEdgeAt(dp, cp) || null);
         });
       });
-      nc.addEventListener("mouseleave", function () {
-        nc.style.cursor = "";
-        setHoverEdge(null);
-      });
+      nc.addEventListener("mouseleave", function () { setHoverEdge(null); });
       nc._aptHoverBound = true;
     }
   }
@@ -4184,8 +4180,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       we capture target positions instead of applying them instantly, then
       ease each node from its current position to the target over
       LAYOUT_ANIM_MS milliseconds using an easeOutQuint curve. Used by
-      Beautify so the user sees nodes glide to their new slots rather
-      than teleport. */
+      auto layout (the A key) so the user sees nodes glide to their new slots
+      rather than teleport. */
   var LAYOUT_ANIM_MS = 280;
   var _layoutAnimRaf = null;
   var _layoutTargets = null;          /* { id: {x, y} } when collecting */
@@ -4238,9 +4234,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   function autoLayout(opts) {
     if (!network || nodes.length === 0) return;
-    /*  Animation opt-in: callers pass {animate: true} (used by Beautify) to
-        get an eased transition; default is instant for keyboard-driven
-        edits that need snappy feedback. */
+    /*  Animation opt-in: callers pass {animate: true} (used by auto layout, the
+        A key) to get an eased transition; default is instant for keyboard-
+        driven edits that need snappy feedback. */
     var animate = !!(opts && opts.animate);
     _layoutTargets = animate ? {} : null;
     try { network.storePositions(); } catch (e) {}
