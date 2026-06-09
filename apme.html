@@ -531,6 +531,18 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       otherwise Save prompts/picks a new one. Reset by New and by a fallback
       (download-based) open, which can't write back. */
   var fileHandle = null;
+  /*  Serialised snapshot of the graph as of the last save / open / new — used
+      to detect genuinely-unsaved changes for the beforeunload prompt (so it
+      doesn't fire right after a save, or for no-op actions like selecting or
+      panning). markSaved() refreshes it; hasUnsavedChanges() compares. */
+  var lastSavedSignature = null;
+  function markSaved() {
+    try { lastSavedSignature = exportMermaid(); } catch (e) { lastSavedSignature = null; }
+  }
+  function hasUnsavedChanges() {
+    if (nodes.length === 0 && edges.length === 0) return false;
+    try { return exportMermaid() !== lastSavedSignature; } catch (e) { return true; }
+  }
 
   var EDGE_COLOR = "#8a94a6";  /* resting edge colour */
   /*  Edge width — constant; selection/hover never thicken the line. */
@@ -3378,6 +3390,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
           .then(function (h) {
             fileHandle = h;
             lastFilename = h.name || lastFilename;
+            lastSavedSignature = md;   /* graph now matches what's on disk */
             flashStatus("Saved " + lastFilename + " (" + nodes.length + " nodes, " + edges.length + " edges)");
           })
           .catch(function (err) {
@@ -3411,6 +3424,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       URL.revokeObjectURL(url);
       a.parentNode && a.parentNode.removeChild(a);
     }, 0);
+    lastSavedSignature = md;   /* graph now matches the downloaded file */
     flashStatus("Saved " + name + " (" + nodes.length + " nodes, " + edges.length + " edges)");
   }
 
@@ -3744,6 +3758,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
     if (filename) lastFilename = filename;
     setTimeout(function () { if (network) network.fit(); }, 30);
+    markSaved();   /* a freshly-loaded graph is "clean" */
     flashStatus("Loaded " + (filename || "graph") + " (" + nodes.length + " nodes, " + edges.length + " edges)");
   }
 
@@ -4432,7 +4447,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   window.addEventListener("DOMContentLoaded", function () {
     initNetwork();
-    document.getElementById("btn-new").addEventListener("click", function () { clearGraph(false); });
+    markSaved();   /* the empty starting canvas is "clean" */
+    document.getElementById("btn-new").addEventListener("click", function () {
+      if (clearGraph(false)) markSaved();   /* a fresh empty canvas is "clean" */
+    });
     document.getElementById("btn-open").addEventListener("click", openGraph);
     document.getElementById("btn-save").addEventListener("click", function () { saveMermaid(); });
     document.getElementById("file-input").addEventListener("change", onFileChosen);
@@ -4454,9 +4472,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
     document.addEventListener("keydown", onKeyDown);
 
-    /* Warn before discarding unsaved work. */
+    /* Warn before discarding GENUINELY unsaved work (changed since the last
+       save / open / new) — not after a clean save or for no-op actions. */
     window.addEventListener("beforeunload", function (e) {
-      if (nodes.length > 0 || edges.length > 0) {
+      if (hasUnsavedChanges()) {
         e.preventDefault();
         e.returnValue = "";
       }

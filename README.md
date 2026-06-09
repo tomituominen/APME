@@ -9,6 +9,43 @@ Markdown code block so committed files render as a diagram on GitHub.
 open apme.html
 ```
 
+> **Tip:** double-clicking the file (a `file://` page) works fully, but the
+> native Save/Open *dialogs* (pick name + location, overwrite-in-place) need a
+> secure context — serve the folder over `localhost`/HTTPS in a Chromium
+> browser (e.g. `python3 -m http.server`). On `file://`, Firefox, or Safari,
+> Save falls back to a filename prompt + download.
+
+## Example
+
+The repo ships [`sample-graph.md`](sample-graph.md) (and a larger
+[`sample-graph-large.md`](sample-graph-large.md)) — open either in the editor.
+Because the file is a fenced Mermaid block, GitHub renders it as a diagram;
+here is `sample-graph.md`:
+
+```mermaid
+%%{init: {"flowchart": {"curve": "bumpX"}}}%%
+flowchart RL
+  n2(("Unwanted business outcome"))
+  n4[("Cylinder asset")]
+  n5["Square asset"]
+  n6(("Round asset"))
+  n7["Internal user"]
+  n8["External user"]
+  n2 -.-|"Action"| n4
+  n2 ---|"Process"| n5
+  n2 ---|"API"| n6
+  n4 -.- n7
+  n5 --- n8
+  n6 --- n8
+  linkStyle default stroke:#cccccc,stroke-width:7.5px;
+  style n2 fill:#b3434a,stroke:#c67277,color:#ecf0f6
+  style n4 fill:#3a7a4a,stroke:#6b9b77,color:#ecf0f6
+  style n5 fill:#c2702e,stroke:#d19462,color:#ecf0f6
+  style n6 fill:#c2a82e,stroke:#d1be62,color:#ecf0f6
+  style n7 fill:#3a6ea5,stroke:#6b92bc,color:#ecf0f6
+  style n8 fill:#6a737d,stroke:#8f969e,color:#ecf0f6
+```
+
 ## Keyboard shortcuts
 
 | Key             | Action                                          |
