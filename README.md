@@ -38,10 +38,10 @@ flowchart RL
   n6 --- n8
   linkStyle default stroke:#cccccc,stroke-width:7.5px;
   style n2 fill:#b3434a,stroke:#c67277,color:#ecf0f6
-  style n4 fill:#3a7a4a,stroke:#6b9b77,color:#ecf0f6
-  style n5 fill:#c2702e,stroke:#d19462,color:#ecf0f6
-  style n6 fill:#c2a82e,stroke:#d1be62,color:#ecf0f6
-  style n7 fill:#3a6ea5,stroke:#6b92bc,color:#ecf0f6
+  style n4 fill:#008038,stroke:#40a06a,color:#ecf0f6
+  style n5 fill:#c86c17,stroke:#d69151,color:#ecf0f6
+  style n6 fill:#c4a81a,stroke:#d3be53,color:#ecf0f6
+  style n7 fill:#156dbc,stroke:#5092cd,color:#ecf0f6
   style n8 fill:#6a737d,stroke:#8f969e,color:#ecf0f6
 ```
 

@@ -23,6 +23,11 @@ existing architecture (vis-network + custom `beforeDrawing` /
   0.4 ↔ 0.7 + outset breathing over 1.6 s; self-managed `requestAnimationFrame`
   loop that runs ONLY while a node is selected; shares `traceNodeOutline` with
   the note glow so box / circle / cylinder all match)
+- [x] Perceptually-aligned (OKLCH) palette (`PALETTE`): the five chromatic
+  swatches share one perceptual chroma (~0.146, from the brand red) at each
+  hue's natural OKLCH lightness, so saturation reads evenly while yellow stays
+  a bright gold (not olive). Neutrals unchanged. (Tried plain-HSL "same S/L"
+  first — declined; it crushed yellow to olive. OKLCH chosen instead.)
 
 ## Backlog
 
@@ -88,7 +93,6 @@ so they aren't re-proposed:_
 
 ### Optional / taste
 
-- [ ] **HSL-aligned palette** — replace the 8 swatches with hues at equal
-  HSL spacing (same S/L), so multiple coloured nodes sit together
-  harmoniously. Pure data change in the `PALETTE` array; check the
-  master's default red still fits.
+- [x] ~~**HSL-aligned palette**~~ — **Shipped as OKLCH-aligned** (see Shipped
+  list). Plain-HSL "same S/L" was tried first and declined (it crushed yellow
+  to olive); a perceptual OKLCH alignment was adopted instead.

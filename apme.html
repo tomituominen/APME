@@ -1316,15 +1316,22 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
      and the right-click swatch popup that also hosts the "Note" action.
      =========================================================================== */
 
+  /*  Perceptually-aligned (OKLCH) palette: the five chromatic swatches share
+      one perceptual chroma (~0.146, taken from the brand red) while each keeps
+      its own natural OKLCH lightness — so saturation reads evenly across hues
+      (greens/blues no longer look duller than the warm tones) yet yellow stays
+      a bright gold instead of collapsing to olive. Neutrals (slate / grey /
+      black) are achromatic and left as-is. Green/blue chroma is gamut-clamped
+      to the sRGB maximum at their lightness. */
   var PALETTE = [
-    "#2d4a63", // default (slate-blue)
-    "#b3434a", // red
-    "#c2702e", // orange
-    "#c2a82e", // yellow
-    "#3a7a4a", // green
-    "#3a6ea5", // blue
-    "#6a737d", // grey
-    "#2a2a2a"  // black
+    "#2d4a63", // default (slate-blue) — neutral
+    "#b3434a", // red    — OKLCH L .538, C .146 (brand anchor)
+    "#c86c17", // orange — OKLCH L .625, C .146
+    "#c4a81a", // yellow — OKLCH L .734, C .146
+    "#008038", // green  — OKLCH L .524, C .146 (gamut-clamped)
+    "#156dbc", // blue   — OKLCH L .528, C .146 (gamut-clamped)
+    "#6a737d", // grey   — neutral
+    "#2a2a2a"  // black  — neutral
   ];
 
   function normaliseHex(c) {
