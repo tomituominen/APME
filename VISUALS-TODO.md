@@ -59,11 +59,10 @@ they aren't re-proposed:_
   semi-transparent `--panel`. Canvas peeks through. One CSS change; check
   Safari/Firefox `backdrop-filter` support is acceptable for the audience.
 
-- [ ] **Custom font** — embed one weight of Inter / IBM Plex Sans as a
-  base64 `@font-face` (keeps the single-file, no-CDN guarantee). Apply to
-  brand, buttons, node labels (the canvas font string in `buildOptions`
-  and `drawEdgeLabelAt` / `measureEdgeLabel` must match). Biggest single
-  bump to perceived quality; adds ~30–100 KB depending on subset.
+- [ ] ~~**Custom font**~~ — **Declined** (prototyped 2026-06-09 with Inter
+  embedded as base64 `@font-face`, applied to brand / buttons / canvas labels).
+  The native system stack read better and Inter's wider metrics shifted label
+  wrapping; not adopted.
 
 - [ ] **Empty-canvas illustration** — faint ghost-graph silhouette behind
   the "Empty canvas" hint (a few rounded rects + lines + a circle) at
