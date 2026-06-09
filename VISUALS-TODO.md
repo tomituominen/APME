@@ -71,26 +71,20 @@ they aren't re-proposed:_
 
 ### Bigger swings
 
-- [ ] **Dotted-edge flow animation** — animate `ctx.lineDashOffset` so
-  dotted edges drift toward the target, selling the "attack path" metaphor.
-  Cheap per frame, but needs a continuous `redraw` loop while any dotted
-  edge exists (guard so static graphs don't spin the CPU). Straight dotted
-  edges are drawn by vis-network, so this likely means taking over dotted
-  straight-edge rendering in `drawBentEdges`' sibling, or only animating
-  bent dotted edges.
+_All three **declined** (2026-06-09) — out of scope for this tool; left here
+so they aren't re-proposed:_
 
-- [ ] **Mini-map** — inset bottom-right showing the whole graph + a
-  viewport rectangle. Render a downscaled second canvas from node
-  positions (not a vis-network instance — too heavy). Click-to-pan via
-  `network.moveTo`. Most code of anything here.
+- [ ] ~~**Dotted-edge flow animation**~~ — animate `ctx.lineDashOffset` so
+  dotted edges drift toward the target. Needs a continuous `redraw` loop
+  while any dotted edge exists; not worth the perpetual repaint. Declined.
 
-- [ ] **Path highlight / focus mode** — click a node → fade everything
-  not in its lineage (ancestors + descendants + connecting edges) to ~30 %
-  alpha for ~600 ms; Shift to make sticky. Compute lineage from
-  `computeLevels()`'s parent/child maps (or a fresh BFS both directions).
-  Fade via a per-node/-edge alpha multiplier honoured in the custom draw
-  passes + vis-network `color` opacity. Best *functional* upgrade —
-  turns colour-coding into a real analysis tool.
+- [ ] ~~**Mini-map**~~ — inset bottom-right showing the whole graph + a
+  viewport rectangle, click-to-pan via `network.moveTo`. Most code of
+  anything here; graphs are small enough not to need it. Declined.
+
+- [ ] ~~**Path highlight / focus mode**~~ — click a node → fade everything
+  not in its lineage to ~30 % alpha. The strongest *functional* idea, but
+  out of scope for now. Declined.
 
 ### Optional / taste
 
