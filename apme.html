@@ -67,6 +67,12 @@
     border-radius: 50%;
     display: inline-block;
     box-shadow: 0 0 8px rgba(230, 233, 239, 0.55);
+    /*  Slow "breathing" pulse so the brand mark feels alive at rest. */
+    animation: brand-pulse 5s ease-in-out infinite;
+  }
+  @keyframes brand-pulse {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 0.9; }
   }
   /*  Buttons and the curve dropdown share one box model so they line up at the
       same height (native <select> and <button> differ otherwise). */
@@ -215,6 +221,14 @@
     padding: 4px 8px;
     border-radius: 4px;
     pointer-events: none;
+    /*  Hidden until flashStatus adds .show, then it slides up + fades in. */
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+  }
+  #status.show {
+    opacity: 1;
+    transform: translateY(0);
   }
   /* === Inline label editor === */
   #inline-editor {
@@ -689,15 +703,19 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   function flashStatus(msg, opts) {
     var el = document.getElementById("status");
     el.textContent = msg;
+    el.classList.add("show");   /* slide up + fade in (see #status CSS) */
     if (statusTimer) { clearTimeout(statusTimer); statusTimer = null; }
     if (!opts || !opts.persist) {
-      statusTimer = setTimeout(function () { el.textContent = ""; }, 2400);
+      statusTimer = setTimeout(function () {
+        el.classList.remove("show");   /* fade/slide back out */
+        el.textContent = "";
+      }, 2400);
     }
   }
 
   function clearStatus() {
     var el = document.getElementById("status");
-    if (el) el.textContent = "";
+    if (el) { el.textContent = ""; el.classList.remove("show"); }
     if (statusTimer) { clearTimeout(statusTimer); statusTimer = null; }
   }
 

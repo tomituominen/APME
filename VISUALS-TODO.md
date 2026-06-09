@@ -14,27 +14,27 @@ existing architecture (vis-network + custom `beforeDrawing` /
 - [x] Animated layout transitions on Beautify (`animateNodesTo`, eased 280 ms)
 - [x] Corner dot note badge (`drawNoteIndicators`)
 - [x] Cursor variety (grab / pointer / grabbing / crosshair via `.hover-*` classes)
+- [x] Brand dot pulse (`#toolbar .brand::before`, `brand-pulse` keyframes,
+  5 s opacity 0.55 ↔ 0.9)
+- [x] Status pill animation (`#status` slides up + fades in over 0.28 s via a
+  `.show` class toggled by `flashStatus` / `clearStatus`)
 
 ## Backlog
 
 ### Quick wins
 
-- [ ] **Edge endpoint nubs** — tiny filled circle (~3 px) where each line
-  meets a node. Draw in `drawAllEdgeLabels`' sibling pass or a new
-  `afterDrawing` step, using `endpointPositions(e)`. Completes the
-  "connection" look; lines currently abut the box edge bluntly.
+_Prototyped in a throwaway demo on 2026-06-09 and **declined** — left here so
+they aren't re-proposed:_
 
-- [ ] **Status pill animation** — the flash bar (`flashStatus`) appears
-  instantly. Add CSS `transform: translateY(8px)` + `opacity` transition,
-  toggle a `.show` class. ~10 lines of CSS + a class toggle.
+- [ ] ~~**Edge endpoint nubs**~~ — tiny filled circle (~3 px) where each line
+  meets a node, drawn in `afterDrawing` from `endpointPositions(e)` (circles
+  clipped to radius, boxes via `rectExitT`). Read cleanly up close but not
+  adopted.
 
-- [ ] **Brand dot pulse** — `#toolbar .brand::before` gets a slow
-  `@keyframes` opacity pulse (5 s cycle, 0.55 ↔ 0.85). Pure CSS.
-
-- [ ] **Faint level bands** — alternating 2 % / 4 % white vertical bands
-  behind each BFS column. Draw in `beforeDrawing` after the grid using
-  `computeLevels()` + the `levelXs[]` array from `autoLayout` (would need
-  to expose those). Reveals layout structure.
+- [ ] ~~**Faint level bands**~~ — alternating 2 % / 4 % white vertical bands
+  behind each BFS column, derived live from `computeLevels()` + node x. Too
+  faint to register against the dot grid + master aura on typical graphs;
+  not adopted.
 
 ### Medium effort
 
