@@ -17,8 +17,7 @@ open apme.html
 
 ## Example
 
-The repo ships [`sample-graph.md`](sample-graph.md) (and a larger
-[`sample-graph-large.md`](sample-graph-large.md)) — open either in the editor.
+The repo ships [`sample-graph.md`](sample-graph.md) — open it in the editor.
 Because the file is a fenced Mermaid block, GitHub renders it as a diagram;
 here is `sample-graph.md`:
 
