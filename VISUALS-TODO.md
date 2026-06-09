@@ -18,6 +18,11 @@ existing architecture (vis-network + custom `beforeDrawing` /
   5 s opacity 0.55 ↔ 0.9)
 - [x] Status pill animation (`#status` slides up + fades in over 0.28 s via a
   `.show` class toggled by `flashStatus` / `clearStatus`)
+- [x] Selection breathing ring (`drawSelectionRing` in `afterDrawing`: thin
+  off-white `EDGE_HILITE_COLOR` ring just outside the selected node, alpha
+  0.4 ↔ 0.7 + outset breathing over 1.6 s; self-managed `requestAnimationFrame`
+  loop that runs ONLY while a node is selected; shares `traceNodeOutline` with
+  the note glow so box / circle / cylinder all match)
 
 ## Backlog
 
@@ -37,12 +42,6 @@ they aren't re-proposed:_
   not adopted.
 
 ### Medium effort
-
-- [ ] **Selection breathing ring** — selected node gets a thin ring just
-  outside its bbox pulsing 0.4 ↔ 0.7 alpha over ~1.6 s. Draw in
-  `afterDrawing` using `network.getSelectedNodes()` + a
-  `requestAnimationFrame` time source; call `network.redraw()` on a timer
-  while a selection exists.
 
 - [ ] **Node hover lift** — on `hoverNode`, bump the node's shadow (or
   nudge it up 1 px). vis-network doesn't expose per-node shadow on hover
