@@ -807,7 +807,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       flashStatus("Edge target no longer exists.");
       return;
     }
-    edges.add({ from: src, to: targetId });
+    edges.add({ from: src, to: targetId, dashes: DEFAULT_EDGE_DASHES });
     /*  Adding an edge can change which level a node belongs to (e.g. a
         previously-orphan node now has a parent). Re-flow the layout. */
     autoLayout();
@@ -1288,9 +1288,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     var newId = newNodeId();
     nodes.add({ id: newId, label: "", x: 0, y: 0 });
     if (direction === "left") {
-      edges.add({ from: newId, to: fromId });
+      edges.add({ from: newId, to: fromId, dashes: DEFAULT_EDGE_DASHES });
     } else {
-      edges.add({ from: fromId, to: newId });
+      edges.add({ from: fromId, to: newId, dashes: DEFAULT_EDGE_DASHES });
     }
     autoLayout();
     try { network.selectNodes([newId], false); } catch (e) {}
@@ -1325,7 +1325,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     var newId = newNodeId();
     nodes.add({ id: newId, label: "", x: sx, y: sy + 1 });
     if (parents.length > 0) {
-      edges.add(parents.map(function (p) { return { from: p, to: newId }; }));
+      edges.add(parents.map(function (p) { return { from: p, to: newId, dashes: DEFAULT_EDGE_DASHES }; }));
     }
     /*  Insert the new node directly BELOW the selected one within its column:
         order every movable sibling by its current y, and give the new node a
@@ -1938,6 +1938,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
      =========================================================================== */
 
   var DOTTED_PATTERN = [2, 18];
+  /*  Newly-created edges (Tab chain, Enter sibling, C connect) start dotted —
+      the dotted "attack path" line is the common case, so it's the default.
+      Double-click an edge to toggle it solid. (Imported files keep whatever
+      solid/dotted style they were saved with — this only affects new edges.) */
+  var DEFAULT_EDGE_DASHES = DOTTED_PATTERN;
 
   function edgeIsDotted(edge) {
     if (!edge) return false;

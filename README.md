@@ -67,7 +67,9 @@ flowchart RL
 
 - **Drag a line** — bend it (smooth quadratic Bezier; the click point follows
   the cursor).
-- **Double-click a line** — toggle solid / dotted.
+- **Double-click a line** — toggle solid / dotted. New lines start **dotted**
+  (the dotted "attack path" line is the common case); double-click to make one
+  solid. Opened files keep whatever style they were saved with.
 - **Right-click a node** — colour swatches, a shape toggle (box / database
   cylinder / circle), and the **Note** action. (The master's shape is fixed,
   so its picker omits the shape row.)
