@@ -532,19 +532,15 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       (download-based) open, which can't write back. */
   var fileHandle = null;
 
-  /*  Edge width, shared between vis-network's straight-edge renderer and our
-      custom Bezier renderer for bent edges so both look identical. Selection
-      no longer THICKENS the line — it adds a red glow instead (see
-      EDGE_GLOW_* and drawSelectedEdgeGlow), so the width is constant. */
+  var EDGE_COLOR = "#8a94a6";  /* resting edge colour */
+  /*  Edge width — constant; selection/hover never thicken the line. */
   var EDGE_WIDTH = 10;
-  /*  Edge highlight = leave the LINE itself untouched (same colour + width) and
-      paint a soft halo under it that fades into the background (canvas shadow).
-      One constant + one function (drawSelectedEdgeGlow) drive all three
-      operations identically: line selection, hovering a node (its connected
-      edges), and hovering a line. The line core is NOT recoloured. */
-  var EDGE_GLOW_COLOR = "#cccccc";
-  var EDGE_GLOW_BLUR = 12;     /* screen px the halo fades over */
-  var EDGE_GLOW_PASSES = 3;    /* stroke repeats to intensify the halo */
+  /*  Edge highlight = the line simply turns brighter (near-white) at the same
+      width, no halo. One constant drives all three operations identically:
+      line selection, hovering a node (its connected edges), and hovering a
+      line — via vis color.highlight/hover for straight edges and drawBentEdges
+      for bent ones. */
+  var EDGE_HILITE_COLOR = "#eef2f8";
   /*  Saved Mermaid line styling, emitted as a `linkStyle default` directive
       (see exportMermaid); our loader ignores linkStyle, so the round-trip is
       unaffected. Lines render light grey, slightly thinner than the editor. */
@@ -560,10 +556,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var EXPORT_CURVE = "bumpX";
   var statusTimer = null;
   /*  Id of the node the mouse is currently hovering (or null). Its connected
-      edges get the same glow as a selected line — see drawSelectedEdgeGlow. */
+      edges brighten, same as a selected line (see highlightedEdgeSet). */
   var hoverNodeId = null;
-  /*  Id of the edge the mouse is currently hovering (or null) — it gets the
-      same glow too. */
+  /*  Id of the edge the mouse is currently hovering (or null) — it brightens
+      the same way. */
   var hoverEdgeId = null;
 
   /*  Selection history. Whenever the selected node changes (user click,
@@ -2478,73 +2474,24 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     });
   }
 
-  /*  Soft halo under an edge — the highlight cue (replaces the old thick-line
-      highlight and vis's hover recolour). Applied to every SELECTED edge and
-      to every edge CONNECTED TO THE HOVERED NODE, so hovering a node lights up
-      its lines with the same glow as selecting one. Traced along the edge's
-      path: the quadratic Bezier for bent edges, vis's via-point curve
-      otherwise. Drawn in beforeDrawing (behind the crisp line vis/drawBentEdges
-      paint on top, and behind the nodes) so it reads as a glow hugging the
-      line. The halo comes from the canvas shadow, so the width stays
-      EDGE_WIDTH. */
-  function drawSelectedEdgeGlow(ctx) {
-    if (!ctx || !network) return;
-    var idSet = {};
-    try { (network.getSelectedEdges() || []).forEach(function (id) { idSet[id] = true; }); } catch (e) {}
+  /*  The set of edge ids currently highlighted: explicitly selected, connected
+      to the hovered node, or the hovered line. Bent edges read this to recolour
+      themselves (vis handles straight edges via color.highlight/hover). */
+  function highlightedEdgeSet() {
+    var set = {};
+    try { (network.getSelectedEdges() || []).forEach(function (id) { set[id] = true; }); } catch (e) {}
     if (hoverNodeId != null) {
-      try { (network.getConnectedEdges(hoverNodeId) || []).forEach(function (id) { idSet[id] = true; }); } catch (e) {}
+      try { (network.getConnectedEdges(hoverNodeId) || []).forEach(function (id) { set[id] = true; }); } catch (e) {}
     }
-    if (hoverEdgeId != null) idSet[hoverEdgeId] = true;
-    var ids = Object.keys(idSet);
-    if (ids.length === 0) return;
-    var scale = 1;
-    try { scale = network.getScale() || 1; } catch (e) {}
-    if (!(scale > 0)) scale = 1;
-    ids.forEach(function (id) {
-      var e = edges.get(id);
-      if (!e) return;
-      var ep = endpointPositions(e);
-      if (!ep) return;
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(ep.A.x, ep.A.y);
-      if (e._bend) {
-        var C = paramToAbs(ep.A, ep.B, e._bend);
-        ctx.quadraticCurveTo(C.x, C.y, ep.B.x, ep.B.y);
-      } else {
-        /*  A non-bent edge is drawn by vis-network as a quadratic through a
-            computed "via" point (smooth: continuous), NOT a straight chord —
-            so trace the same curve, else the glow diverges from the line and
-            shows as a second stroke. Fall back to a chord if the via isn't
-            available. */
-        var via = null;
-        try {
-          var be = network.body.edges[id];
-          if (be && be.edgeType && typeof be.edgeType.getViaNode === "function") via = be.edgeType.getViaNode();
-        } catch (err) {}
-        if (via && typeof via.x === "number" && typeof via.y === "number") {
-          ctx.quadraticCurveTo(via.x, via.y, ep.B.x, ep.B.y);
-        } else {
-          ctx.lineTo(ep.B.x, ep.B.y);
-        }
-      }
-      ctx.strokeStyle = EDGE_GLOW_COLOR;
-      ctx.shadowColor = EDGE_GLOW_COLOR;
-      ctx.shadowBlur = EDGE_GLOW_BLUR / scale;
-      ctx.lineWidth = EDGE_WIDTH;
-      ctx.lineCap = "round";
-      /*  Mirror the line's dash so a dotted edge glows as dotted dots — a
-          solid core here would fill the gaps and make the line look solid. */
-      if (Array.isArray(e.dashes)) ctx.setLineDash(e.dashes);
-      else if (e.dashes === true) ctx.setLineDash([6, 6]);
-      else ctx.setLineDash([]);
-      for (var p = 0; p < EDGE_GLOW_PASSES; p++) ctx.stroke();
-      ctx.restore();
-    });
+    if (hoverEdgeId != null) set[hoverEdgeId] = true;
+    return set;
   }
 
   function drawBentEdges(ctx) {
     if (!ctx || !network) return;
+    /*  vis recolours STRAIGHT edges on select/hover (color.highlight/hover);
+        we own bent edges, so brighten them here when highlighted. */
+    var hl = highlightedEdgeSet();
     edges.forEach(function (e) {
       if (!e._bend) return;
       /*  Live endpoint positions so the curve follows a node mid-drag. */
@@ -2555,9 +2502,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       ctx.beginPath();
       ctx.moveTo(ep.A.x, ep.A.y);
       ctx.quadraticCurveTo(C.x, C.y, ep.B.x, ep.B.y);
-      /*  Always the base colour — selection/hover are shown by the fading
-          halo (drawSelectedEdgeGlow), not by recolouring the line. */
-      ctx.strokeStyle = "#8a94a6";
+      /*  Highlighted bent edges brighten to EDGE_HILITE_COLOR (same width);
+          otherwise the resting colour. */
+      ctx.strokeStyle = hl[e.id] ? EDGE_HILITE_COLOR : EDGE_COLOR;
       ctx.lineWidth = EDGE_WIDTH;
       ctx.lineCap = "round";
       if (Array.isArray(e.dashes)) ctx.setLineDash(e.dashes);
@@ -2855,10 +2802,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
            kept in the data and in Mermaid's `---` direction, but the
            rendering shows plain undirected lines. */
         arrows: { to: { enabled: false }, from: { enabled: false }, middle: { enabled: false } },
-        /*  Selection/hover do NOT recolour the line — the highlight is the
-            fading halo (drawSelectedEdgeGlow). So highlight/hover keep the
-            base colour. */
-        color: { color: "#8a94a6", highlight: "#8a94a6", hover: "#8a94a6" },
+        /*  Highlight = the line brightens to EDGE_HILITE_COLOR (same width, no
+            halo) on selection and hover. (Bent edges, which we render, brighten
+            the same way in drawBentEdges.) */
+        color: { color: EDGE_COLOR, highlight: EDGE_HILITE_COLOR, hover: EDGE_HILITE_COLOR },
         /*  Labels are drawn entirely by our own afterDrawing hook (see
             drawAllEdgeLabels). vis-network's label engine applies a hidden
             default offset on top of `vadjust` that depends on label height,
@@ -2881,10 +2828,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
             our own beforeDrawing hook as quadratic Beziers (vis-network's
             stroke is hidden on those by setting per-edge color transparent). */
         smooth: { enabled: true, type: "continuous", roundness: 0.12 },
-        /*  Constant width — selecting an edge does NOT thicken it (selectionWidth
-            0). Instead it turns red (color.highlight) and gets a soft red halo
-            painted under it by drawSelectedEdgeGlow, matching the bent-edge
-            renderer. */
+        /*  Constant width — selecting an edge does NOT thicken it
+            (selectionWidth 0); the highlight is the brighter colour
+            (color.highlight), matching the bent-edge renderer. */
         width: EDGE_WIDTH,
         selectionWidth: 0,
         /*  Word-wrap long edge labels. Width is tuned for typical attack-
@@ -2899,16 +2845,14 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         navigationButtons: false,
         keyboard: { enabled: false },
         /*  Selecting (or creating) a NODE must not highlight its connected
-            edges — otherwise the selection glow lights up a node's edges (two
-            lines for a mid-chain node) when the user only added/selected a
-            node. The glow is reserved for explicitly selecting a line. Our
-            selectNodes() calls pass highlightEdges=false to match this for
-            programmatic selection. */
+            edges — otherwise a mid-chain node's edges would brighten when the
+            user only added/selected a node. Brightening is reserved for
+            explicitly selecting a line. Our selectNodes() calls pass
+            highlightEdges=false to match this for programmatic selection. */
         selectConnectedEdges: false,
-        /*  Hovering a node SHOULD highlight its connected edges — we want them
-            to look exactly like a selected line: vis recolours the edge core to
-            color.hover (= the glow colour) and our hoverNode handler adds the
-            matching halo (see drawSelectedEdgeGlow). */
+        /*  Hovering a node SHOULD highlight its connected edges — vis brightens
+            connected straight edges to color.hover; bent ones brighten via the
+            hoverNode handler + drawBentEdges (highlightedEdgeSet). */
         hoverConnectedEdges: true
       },
       /*  vis-network's in-canvas Add Node / Add Edge toolbar is disabled —
@@ -2940,13 +2884,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     /*  beforeDrawing layer order (bottom → top):
           1) Dot grid          — engineering-paper backdrop, scales with zoom
           2) Master aura       — soft red glow sits under everything
-          3) Selected-edge glow— red halo under the selected line
-          4) Bent edges        — curves go behind nodes
+          3) Bent edges        — curves go behind nodes
         Then vis-network draws straight edges + nodes on top of all this. */
     network.on("beforeDrawing", function (ctx) {
       drawDotGrid(ctx);
       drawMasterAura(ctx);
-      drawSelectedEdgeGlow(ctx);
       drawBentEdges(ctx);
     });
 
@@ -2988,7 +2930,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     var nc = document.getElementById("network");
     network.on("hoverNode", function (params) {
       if (nc) nc.classList.add("hover-node");
-      /*  Glow the hovered node's connected edges (see drawSelectedEdgeGlow). */
+      /*  Brighten the hovered node's connected edges (see highlightedEdgeSet). */
       hoverNodeId = params && params.node != null ? params.node : null;
       try { network.redraw(); } catch (e) {}
     });
