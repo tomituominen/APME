@@ -6,7 +6,7 @@ access needed at runtime. Saves and loads in **Mermaid** format, wrapped in a
 Markdown code block so committed files render as a diagram on GitHub.
 
 ```
-open apme.html
+open index.html
 ```
 
 > **Tip:** double-clicking the file (a `file://` page) works fully, but the

@@ -54,11 +54,13 @@
     font-weight: 600;
     letter-spacing: 0.02em;
     color: var(--text);
+    text-decoration: none;          /* it's a link to the repo — keep brand look */
     margin-right: 12px;
     display: flex;
     align-items: center;
     gap: 6px;
   }
+  #toolbar a.brand:hover { text-decoration: underline; }
   #toolbar .brand::before {
     content: "";
     width: 10px;
@@ -454,7 +456,7 @@
 <body>
 <div id="app">
   <div id="toolbar">
-    <span class="brand">Attack Path Map Editor</span>
+    <a class="brand" href="https://github.com/tomituominen/APME" target="_blank" rel="noopener noreferrer">Attack Path Map Editor</a>
     <button id="btn-new" title="New graph (clear the canvas)">New</button>
     <button id="btn-open" title="Open graph — pick a Mermaid .md/.mmd file">Open</button>
     <button id="btn-save" title="Save graph (⌘/Ctrl+S) — choose a filename; overwrites the opened file where supported. Shift adds Save As.">Save</button>
