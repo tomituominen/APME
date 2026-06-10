@@ -5,9 +5,14 @@ maps. Opens directly in any modern browser — no install, no server, no interne
 access needed at runtime. Saves and loads in **Mermaid** format, wrapped in a
 Markdown code block so committed files render as a diagram on GitHub.
 
-```
-open index.html
-```
+## Run it
+
+- **Hosted:** open <https://tomituominen.github.io/APME/> — nothing to install;
+  it runs entirely in your browser, and because it's served over HTTPS the
+  native Save/Open dialogs work in Chromium.
+- **Locally:** clone or download the repo and open `index.html` (e.g. `open
+  index.html`). For the native Save/Open dialogs, serve the folder instead
+  (see the tip below).
 
 > **Tip:** double-clicking the file (a `file://` page) works fully, but the
 > native Save/Open *dialogs* (pick name + location, overwrite-in-place) need a
