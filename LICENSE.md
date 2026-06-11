@@ -1,4 +1,4 @@
-# DON'T BE A DICK PUBLIC LICENSE
+# DON'T BE A DICK PUBLIC LICENSE -- https://dbad-license.org
 
 > Version 1.1, December 2016
 
