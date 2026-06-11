@@ -192,3 +192,9 @@ there's nothing to switch on.
   gradient/highlight pass, database cylinders, soft note glow on noted nodes,
   and edge labels.
 - No build step. Edit the HTML in place; refresh the browser.
+
+## License
+
+Released under the [Don't Be A Dick Public License](LICENSE.md) (DBAD, v1.1):
+do whatever you like with it — just don't be a dick. See [`LICENSE.md`](LICENSE.md)
+for the full text.
