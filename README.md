@@ -20,6 +20,22 @@ Markdown code block so committed files render as a diagram on GitHub.
 > browser (e.g. `python3 -m http.server`). On `file://`, Firefox, or Safari,
 > Save falls back to a filename prompt + download.
 
+## Two ways to build a map
+
+This tool is meant to be used either way:
+
+- **Manually**, in the editor — draw the graph by hand with the keyboard
+  shortcuts and mouse gestures below, then **Save**. This is the primary,
+  install-free workflow.
+- **Via the included Claude skill** — the repo ships
+  [`attack-path-map.skill`](attack-path-map.skill), a [Claude
+  Code](https://claude.com/claude-code) skill that generates a properly
+  formatted APME `.md` from a described threat (a root outcome plus its attack
+  paths). The output opens straight in the editor and renders on GitHub, so
+  you can generate a first draft with Claude and then refine it by hand. Drag
+  the `.skill` file into Claude Code (or place it in your skills directory) to
+  install it.
+
 ## Example
 
 The repo ships [`sample-graph.md`](sample-graph.md) — open it in the editor.
