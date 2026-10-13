@@ -1,5 +1,7 @@
 # Attack Path Map Editor
 
+[![Tests](https://github.com/tomituominen/APME/actions/workflows/test.yml/badge.svg)](https://github.com/tomituominen/APME/actions/workflows/test.yml)
+
 A self-contained, single-file HTML5 tool for visualising and editing attack path
 maps. Opens directly in any modern browser — no install, no server, no internet
 access needed at runtime. Saves and loads in **Mermaid** format, wrapped in a
@@ -225,7 +227,8 @@ npm test
 
 It covers the Mermaid round-trip (positions, bends, notes, colours, curve,
 direction), solid/dotted edge handling, auto-save and crash recovery, and
-collision-free auto layout. Run it before committing changes to `index.html`.
+collision-free auto layout. Run it before committing changes to `index.html`;
+GitHub Actions also runs it on every push to `main` and on pull requests.
 
 ## License
 
