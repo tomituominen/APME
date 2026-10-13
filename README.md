@@ -36,7 +36,10 @@ This tool is meant to be used either way:
   paths). The output opens straight in the editor and renders on GitHub, so
   you can generate a first draft with Claude and then refine it by hand. Drag
   the `.skill` file into Claude Code (or place it in your skills directory) to
-  install it.
+  install it. Its source lives unzipped in
+  [`skills/attack-path-map/`](skills/attack-path-map/) (instructions plus a
+  worked example); after editing it, run `skills/build.sh` to rebuild the
+  `.skill`. The test suite fails if the two drift apart.
 
 ## Example
 

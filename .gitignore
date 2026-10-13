@@ -35,6 +35,9 @@ yarn-debug.log*
 yarn-error.log*
 .cache/
 
+# Private attack path maps (keep real threat models out of this public repo)
+secrets-apm.md
+
 # Local test artifacts
 /tests/test-results/
 /tests/playwright-report/
