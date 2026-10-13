@@ -95,7 +95,7 @@ test("export carries colours, direction, curve and GitHub notes", async ({ app }
   expect(md).toMatch(/^flowchart RL$/m);
   expect(md).toContain("style n2 fill:#b3434a");
   expect(md).toContain("style n4 fill:#008038");
-  expect(md).toContain("style n6 fill:#c4a81a");
+  expect(md).toContain("style n6 fill:#877200");
   expect(md).toMatch(/^\s*n2 -\.-\|"Action"\| n4$/m);
   expect(md).toMatch(/^\s*n2 ---\|"Process"\| n5$/m);
   expect(md).toContain("## Notes");

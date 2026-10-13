@@ -1086,7 +1086,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
           than the old bespoke white-on-select border. The master stays
           distinct through its red fill, circle shape, size and aura. */
       color: colorObjectFromHex(MASTER_COLOUR),
-      font: { color: "#ffffff" },
+      font: { color: NODE_FONT_COLOR },   /* same label colour as every node */
       _bg: MASTER_COLOUR
     };
   }
@@ -1622,21 +1622,24 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
      =========================================================================== */
 
   /*  Perceptually-aligned (OKLCH) palette: the five chromatic swatches share
-      one perceptual chroma (~0.146, taken from the brand red) while each keeps
-      its own natural OKLCH lightness — so saturation reads evenly across hues
-      (greens/blues no longer look duller than the warm tones) yet yellow stays
-      a bright gold instead of collapsing to olive. Neutrals (slate / grey /
-      black) are achromatic and left as-is. Green/blue chroma is gamut-clamped
-      to the sRGB maximum at their lightness. */
+      one perceptual chroma (~0.146, taken from the brand red), so saturation
+      reads evenly across hues (greens/blues no longer look duller than the
+      warm tones). Every label uses the same light text (NODE_FONT_COLOR), so
+      each fill must stay dark enough for it: orange and yellow are lowered in
+      lightness to ~4.1:1 contrast, in line with green and grey (yellow at its
+      natural lightness gave only 2.0:1). tests/specs/contrast.spec.js guards
+      this for every swatch. Neutrals (slate / grey / black) are achromatic
+      and left as-is. Green/blue chroma is gamut-clamped to the sRGB maximum
+      at their lightness. */
   var PALETTE = [
-    "#2d4a63", // default (slate-blue) — neutral
-    "#b3434a", // red    — OKLCH L .538, C .146 (brand anchor)
-    "#c86c17", // orange — OKLCH L .625, C .146
-    "#c4a81a", // yellow — OKLCH L .734, C .146
-    "#008038", // green  — OKLCH L .524, C .146 (gamut-clamped)
-    "#156dbc", // blue   — OKLCH L .528, C .146 (gamut-clamped)
-    "#6a737d", // grey   — neutral
-    "#2a2a2a"  // black  — neutral
+    "#2d4a63", // default (slate-blue) - neutral
+    "#b3434a", // red    - OKLCH L .538, C .146 (brand anchor)
+    "#b35c00", // orange - OKLCH L .568, C .146 (lowered for label contrast)
+    "#877200", // yellow - OKLCH L .555, C .146 (lowered for label contrast)
+    "#008038", // green  - OKLCH L .524, C .146 (gamut-clamped)
+    "#156dbc", // blue   - OKLCH L .528, C .146 (gamut-clamped)
+    "#6a737d", // grey   - neutral
+    "#2a2a2a"  // black  - neutral
   ];
 
   function normaliseHex(c) {
@@ -1685,7 +1688,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var DB_MAX_WIDTH = 240;   /* wrap width — keeps cylinders from going too wide */
   var DB_TEXT_DROP = 6;     /* nudge label below bbox centre into the can body */
   var NODE_FONT_FACE = "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
-  var NODE_FONT_COLOR = "#ecf0f6";   /* visible label colour (matches buildOptions default) */
+  var NODE_FONT_COLOR = "#ecf0f6";   /* the ONE label colour for every node (see PALETTE) */
 
   /*  vis-node props that make a node render as our custom cylinder: a
       transparent auto-sizing box, with top/bottom margin reserving room
@@ -2839,7 +2842,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         var blockH = lines.length * lineH;
         var centerY = (top + bottom) / 2 + DB_TEXT_DROP;
         var startY = centerY - blockH / 2 + lineH / 2;
-        ctx.fillStyle = "#ecf0f6";
+        ctx.fillStyle = NODE_FONT_COLOR;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         for (var j = 0; j < lines.length; j++) {
@@ -3236,7 +3239,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
             size to fit their label — circles especially — then visibly
             grow on hover. Keeping it off keeps the node size stable. */
         labelHighlightBold: false,
-        font: { size: 28, color: "#ecf0f6", face: "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" },
+        font: { size: 28, color: NODE_FONT_COLOR, face: "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" },
         color: {
           background: "#2d4a63",
           border: "#4a7a9e",
@@ -3696,7 +3699,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       if (bg) {
         styleLines.push("  style " + n.id + " fill:" + bg
                         + ",stroke:" + lightenHex(bg, 0.25)
-                        + ",color:#ecf0f6");
+                        + ",color:" + NODE_FONT_COLOR);
       }
     });
 

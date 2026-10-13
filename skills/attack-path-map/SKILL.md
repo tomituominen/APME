@@ -28,8 +28,8 @@ If the user has given enough context, build first and ask about gaps afterwards.
 |------|-------|---------------|---------|
 | Root (unwanted outcome) | `nX(("label"))` | `#b3434a` / `#c67277` | The outcome being prevented. Exactly one. |
 | Data store | `nX[("label")]` | `#008038` / `#40a06a` | Databases, key stores, backups, credential vaults |
-| System / config | `nX["label"]` | `#c86c17` / `#d69151` | Software, services, configuration files |
-| Access path | `nX["label"]` | `#c4a81a` / `#d3be53` | Pipelines, shared drives, portals, network paths |
+| System / config | `nX["label"]` | `#b35c00` / `#c68540` | Software, services, configuration files |
+| Access path | `nX["label"]` | `#877200` / `#a59540` | Pipelines, shared drives, portals, network paths |
 | Internal actor | `nX["label"]` | `#156dbc` / `#5092cd` | Employees, admins, privileged users |
 | External actor | `nX["label"]` | `#6a737d` / `#8f969e` | Attackers, vendors, contractors, supply chain |
 
@@ -97,7 +97,7 @@ flowchart RL
 
   style n1 fill:#b3434a,stroke:#c67277,color:#ecf0f6
   style n2 fill:#008038,stroke:#40a06a,color:#ecf0f6
-  style n3 fill:#c86c17,stroke:#d69151,color:#ecf0f6
+  style n3 fill:#b35c00,stroke:#c68540,color:#ecf0f6
 
   click n2 "#note-n2" "Data store"
 ```

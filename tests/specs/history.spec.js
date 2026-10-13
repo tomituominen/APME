@@ -114,7 +114,7 @@ test.describe("each kind of edit is one undoable step", () => {
     const p = await nodePagePos(app, "b");
     await expectOneStep(app, async () => {
       await app.mouse.click(p.x, p.y, { button: "right" });
-      await app.locator('#color-picker .swatch[data-color="#c86c17"]').click();
+      await app.locator('#color-picker .swatch[data-color="#b35c00"]').click();
     });
     await expectOneStep(app, async () => {
       await app.mouse.click(p.x, p.y, { button: "right" });

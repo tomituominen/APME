@@ -28,11 +28,11 @@ flowchart RL
 
   style n1 fill:#b3434a,stroke:#c67277,color:#ecf0f6
   style n2 fill:#008038,stroke:#40a06a,color:#ecf0f6
-  style n3 fill:#c86c17,stroke:#d69151,color:#ecf0f6
-  style n4 fill:#c4a81a,stroke:#d3be53,color:#ecf0f6
+  style n3 fill:#b35c00,stroke:#c68540,color:#ecf0f6
+  style n4 fill:#877200,stroke:#a59540,color:#ecf0f6
   style n5 fill:#008038,stroke:#40a06a,color:#ecf0f6
-  style n6 fill:#c86c17,stroke:#d69151,color:#ecf0f6
-  style n7 fill:#c4a81a,stroke:#d3be53,color:#ecf0f6
+  style n6 fill:#b35c00,stroke:#c68540,color:#ecf0f6
+  style n7 fill:#877200,stroke:#a59540,color:#ecf0f6
   style n8 fill:#156dbc,stroke:#5092cd,color:#ecf0f6
   style n9 fill:#6a737d,stroke:#8f969e,color:#ecf0f6
   style n10 fill:#6a737d,stroke:#8f969e,color:#ecf0f6
