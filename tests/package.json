@@ -1,0 +1,11 @@
+{
+  "name": "apme-tests",
+  "private": true,
+  "description": "Headless browser tests for the Attack Path Map Editor (index.html). Dev-only; the app itself has no build step or dependencies.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0"
+  }
+}

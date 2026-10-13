@@ -209,6 +209,24 @@ there's nothing to switch on.
   and edge labels.
 - No build step. Edit the HTML in place; refresh the browser.
 
+## Development: running the tests
+
+A headless browser suite ([Playwright](https://playwright.dev)) lives in
+`tests/`. It is dev-only: `index.html` stays a single self-contained file, and
+the tests load it unmodified (a small hook is injected at load time to read
+internal state).
+
+```bash
+cd tests
+npm install
+npx playwright install chromium   # one-time, downloads ~100 MB
+npm test
+```
+
+It covers the Mermaid round-trip (positions, bends, notes, colours, curve,
+direction), solid/dotted edge handling, auto-save and crash recovery, and
+collision-free auto layout. Run it before committing changes to `index.html`.
+
 ## License
 
 Released under the [Don't Be A Dick Public License](LICENSE.md) (DBAD, v1.1):
