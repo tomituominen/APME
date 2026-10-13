@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- Defense in depth: the editor never needs the network, so it gets none.
+     Scripts and styles are all inline; files are opened and saved through the
+     file picker and downloads, which this policy doesn't restrict. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; base-uri 'none'; form-action 'none'">
+<link rel="icon" href="data:,">
 <title>Attack Path Map Editor</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
@@ -839,7 +844,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   /*  Called on any node removal so we don't keep references to deleted ids. */
   function forgetSelectionsOf(ids) {
     if (!ids || ids.length === 0) return;
-    var byId = {};
+    var byId = Object.create(null);
     ids.forEach(function (id) { byId[id] = true; });
     if (currentSelectedNode && byId[currentSelectedNode]) currentSelectedNode = null;
     if (prevSelectedNode && byId[prevSelectedNode]) prevSelectedNode = null;
@@ -850,10 +855,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       node should also remove everything downstream of it in the attack
       path. */
   function descendantsOf(rootIds) {
-    var result = {};
+    var result = Object.create(null);
     if (!rootIds || rootIds.length === 0) return [];
     var allEdges = edges.get();
-    var children = {};
+    var children = Object.create(null);
     allEdges.forEach(function (e) {
       if (!children[e.from]) children[e.from] = [];
       children[e.from].push(e.to);
@@ -1001,6 +1006,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (inlineEditor) return inlineEditor;
     inlineEditor = document.getElementById("inline-editor");
     if (!inlineEditor) return null;
+    inlineEditor.maxLength = MAX_LABEL_LENGTH;   /* same cap the importer applies */
     inlineEditor.addEventListener("keydown", onInlineEditorKey);
     inlineEditor.addEventListener("blur", onInlineEditorBlur);
     /* Stop vis-network from stealing single-key events while typing. */
@@ -1349,7 +1355,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       new node gets the selected node's y + 0.5 so it sorts immediately after
       it but before the next sibling (which is a full SIBLING_STEP lower). */
   function buildInsertOrderHint(newId, selY) {
-    var hint = {};
+    var hint = Object.create(null);
     var positions = {};
     try { positions = network.getPositions(); } catch (e) {}
     nodes.forEach(function (n) {
@@ -2606,7 +2612,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       a 3-D read; outline + selection use the node's colour / accent. */
   function drawDatabaseShapes(ctx) {
     if (!ctx || !network) return;
-    var sel = {};
+    var sel = Object.create(null);
     try { (network.getSelectedNodes() || []).forEach(function (id) { sel[id] = true; }); } catch (e) {}
     nodes.forEach(function (n) {
       if (!n || !n._db) return;
@@ -2724,7 +2730,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       to the hovered node, or the hovered line. Bent edges read this to recolour
       themselves (vis handles straight edges via color.highlight/hover). */
   function highlightedEdgeSet() {
-    var set = {};
+    var set = Object.create(null);
     try { (network.getSelectedEdges() || []).forEach(function (id) { set[id] = true; }); } catch (e) {}
     if (hoverNodeId != null) {
       try { (network.getConnectedEdges(hoverNodeId) || []).forEach(function (id) { set[id] = true; }); } catch (e) {}
@@ -3379,18 +3385,28 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   /* ---------- Mermaid export ---------- */
 
+  /*  Longest node/edge label we accept, from a file or the label editor.
+      vis-network word-wraps an over-long unbroken word one character at a
+      time (quadratic), so a crafted 200k-character label froze the tab.
+      Real labels are a few words; 1,000 characters is far beyond that. */
+  var MAX_LABEL_LENGTH = 1000;
+
   /*  Escape a label for inclusion inside a Mermaid double-quoted string.
       Mermaid uses HTML-ish escapes (`#quot;` for ", `&lt;`/`&gt;`/`&amp;`)
       and treats `<br/>` inside labels as a newline. Convert real newlines
-      to `<br/>` so multi-line labels survive. */
+      (and the Unicode line/paragraph separators) to `<br/>` so multi-line
+      labels survive. `#` is escaped as `#35;` (before `"` becomes `#quot;`)
+      so label text that happens to look like a Mermaid entity code, e.g. a
+      literal "#quot;", round-trips instead of turning into a quote. */
   function escapeMermaid(s) {
     return String(s)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
+      .replace(/#/g, "#35;")
       .replace(/"/g, "#quot;")
       .replace(/\r/g, "")
-      .replace(/\n/g, "<br/>");
+      .replace(/[\n\u2028\u2029]/g, "<br/>");
   }
 
   /*  Reverse of escapeMermaid — restore labels read from a Mermaid file.
@@ -3400,7 +3416,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (s == null) return s;
     return String(s)
       .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/#quot;/g, '"')
+      .replace(/#(quot|35);/g, function (_, code) { return code === "quot" ? '"' : "#"; })
       .replace(/&quot;/g, '"')
       .replace(/&gt;/g, ">")
       .replace(/&lt;/g, "<")
@@ -3472,7 +3488,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         });
       }
     });
-    var markerById = {};
+    var markerById = Object.create(null);
     noteList.forEach(function (e) { markerById[e.id] = e.marker; });
 
     var dir = (layoutDirection === "LR" ? "LR" : "RL");
@@ -3482,7 +3498,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         endpoints (lines stop short of nodes); the offered curves pass through
         them. Our loader ignores this %% directive. */
     body.push("%%{init: {\"flowchart\": {\"curve\": \"" + EXPORT_CURVE + "\"}}}%%");
-    body.push("%% APM-DATA: " + JSON.stringify(meta));
+    /*  JSON.stringify leaves U+2028/U+2029 unescaped, and regex `$` (and
+        some Mermaid renderers) treat them as line breaks, which used to cut
+        this comment short and lose all metadata. Escape them; JSON.parse
+        turns them back into the same characters. */
+    body.push("%% APM-DATA: " + JSON.stringify(meta).replace(/[\u2028\u2029]/g, function (c) {
+      return "\\u" + c.charCodeAt(0).toString(16);
+    }));
     body.push("flowchart " + dir);
 
     /* Nodes — quote every label so commas, colons, etc. survive. Noted
@@ -3569,8 +3591,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         out.push('<a id="note-' + slugForNote(e) + '"></a>');
         out.push("**" + e.marker + " " + mdEscape(e.label) + "**");
         out.push("");
-        /* Preserve the note's own line breaks as Markdown hard breaks. */
-        out.push(e.text.split(/\r?\n/).map(function (ln) { return mdEscape(ln); }).join("  \n"));
+        /* Preserve the note's own line breaks (incl. U+2028/U+2029) as Markdown hard breaks. */
+        out.push(e.text.split(/\r?\n|[\u2028\u2029]/).map(function (ln) { return mdEscape(ln); }).join("  \n"));
       });
     }
     out.push("");
@@ -3593,7 +3615,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   /*  Escape Markdown-significant characters in note text / labels so the
       Notes section renders as plain text rather than accidental markup. */
   function mdEscape(s) {
-    return String(s).replace(/([\\`*_{}\[\]()#+\-.!|<>])/g, "\\$1");
+    return String(s).replace(/[\u2028\u2029]/g, " ").replace(/([\\`*_{}\[\]()#+\-.!|<>])/g, "\\$1");
   }
 
   /*  True when the File System Access API is usable for native open/save
@@ -3745,9 +3767,16 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   /*  Pull the APM-DATA metadata payload (positions, bends, notes) we
       stash as a Mermaid comment line. Returns the parsed object or null. */
   function extractAPMData(body) {
-    var m = /^\s*%%\s*APM-DATA\s*:\s*(\{[\s\S]*?\})\s*$/m.exec(body);
-    if (!m) return null;
-    try { return JSON.parse(m[1]); } catch (e) { return null; }
+    /*  Line by line, splitting on \n only: a raw U+2028 inside the JSON
+        (written by older versions) must not end the match early, which the
+        old multiline-regex `$` did. [\s\S] spans those characters. */
+    var lines = String(body || "").split(/\r?\n/);
+    for (var i = 0; i < lines.length; i++) {
+      var m = /^\s*%%\s*APM-DATA\s*:\s*(\{[\s\S]*\})\s*$/.exec(lines[i]);
+      if (!m) continue;
+      try { return JSON.parse(m[1]); } catch (e) { return null; }
+    }
+    return null;
   }
 
   /*  Parse the Mermaid body into:
@@ -3759,7 +3788,29 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       circle. `idx` on edges is the position within its from→to bucket —
       used by the metadata applier to match parallel edges to their bend. */
   function parseMermaidBody(body) {
-    var out = { dir: "RL", nodes: [], edges: [], styles: {} };
+    /*  Maps keyed by node id are prototype-free: ids come from the file, and
+        an id like `constructor` must not find Object.prototype.constructor.
+        `truncated` counts labels cut to MAX_LABEL_LENGTH. */
+    var out = {
+      dir: "RL", nodes: [], edges: [], styles: Object.create(null),
+      truncated: 0, idMap: Object.create(null)
+    };
+    function clampLabel(s) {
+      s = String(s);
+      if (s.length <= MAX_LABEL_LENGTH) return s;
+      out.truncated++;
+      return s.slice(0, MAX_LABEL_LENGTH);
+    }
+    /*  vis-network keeps nodes in a plain object, so a node whose id is an
+        Object.prototype name (`constructor`, `toString`, ...) is never
+        indexed: not drawn, not selectable, missing from getPositions().
+        Rename such ids on the way in (labels are separate, so nothing
+        visible changes); `idMap` lets the caller translate APM-DATA keys. */
+    function safeId(id) {
+      if (!(id in Object.prototype)) return id;
+      if (!out.idMap[id]) out.idMap[id] = id + "_apme";
+      return out.idMap[id];
+    }
     /* Drop comment lines (`%% …`) entirely, including the APM-DATA one
        which we've already extracted above. */
     var lines = String(body || "")
@@ -3791,30 +3842,36 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     );
     var reStyle = new RegExp("^\\s*style\\s+(" + ID + ")\\s+(.+?)\\s*$", "i");
 
-    var seen = {};
-    function noteNode(id, label, shape) {
+    var seen = Object.create(null);
+    /*  Both take the id as written in the file; a bare id doubles as the
+        label, so the label keeps the original spelling even when safeId
+        renames the id. noteEdgeRef returns the (possibly renamed) id. */
+    function noteNode(rawId, label, shape) {
+      var id = safeId(rawId);
       if (seen[id]) {
         /*  Re-mention of an existing node — Mermaid allows declaring a
             label once, then referring to the bare id elsewhere. Upgrade
             the stored entry if this mention carries richer info. */
         var ex = out.nodes.find(function (n) { return n.id === id; });
         if (ex) {
-          if (label != null && label.length > 0 && (!ex.label || ex.label === id)) ex.label = label;
+          if (label != null && label.length > 0 && (!ex.label || ex.label === rawId.slice(0, MAX_LABEL_LENGTH))) ex.label = clampLabel(label);
           if (shape && shape !== "box") ex.shape = shape;
         }
         return;
       }
       seen[id] = true;
-      out.nodes.push({ id: id, label: label != null ? label : id, shape: shape || "box" });
+      out.nodes.push({ id: id, label: clampLabel(label != null ? label : rawId), shape: shape || "box" });
     }
-    function noteEdgeRef(id) {
+    function noteEdgeRef(rawId) {
+      var id = safeId(rawId);
       if (!seen[id]) {
         seen[id] = true;
-        out.nodes.push({ id: id, label: id, shape: "box" });
+        out.nodes.push({ id: id, label: clampLabel(rawId), shape: "box" });
       }
+      return id;
     }
 
-    var fromToIdx = {};
+    var fromToIdx = Object.create(null);
     for (var i = 0; i < lines.length; i++) {
       var line = lines[i];
       var m;
@@ -3842,18 +3899,18 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         var label = labQ != null
           ? unescapeMermaid(labQ)
           : (labU != null ? unescapeMermaid(String(labU).trim()) : "");
-        noteEdgeRef(from);
-        noteEdgeRef(to);
+        from = noteEdgeRef(from);
+        to = noteEdgeRef(to);
         var key = from + "|" + to;
         var idx = fromToIdx[key] || 0;
         fromToIdx[key] = idx + 1;
-        out.edges.push({ from: from, to: to, label: label, dotted: dotted, idx: idx });
+        out.edges.push({ from: from, to: to, label: clampLabel(label), dotted: dotted, idx: idx });
         continue;
       }
 
       m = reStyle.exec(line);
       if (m) {
-        var sid = m[1];
+        var sid = safeId(m[1]);
         var rules = m[2];
         var fillMatch = /\bfill\s*:\s*(#[0-9a-fA-F]{3,8}|[A-Za-z]+)/.exec(rules);
         if (fillMatch) out.styles[sid] = { fill: fillMatch[1] };
@@ -3878,6 +3935,31 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (sel) sel.value = name;
   }
 
+  /*  Apply the parser's id renames (see safeId in parseMermaidBody) to the
+      APM-DATA keys, so positions, notes, bends and the master still find
+      their nodes. Bend keys are "from|to" or "from|to|index". */
+  function remapMetaIds(meta, idMap) {
+    if (Object.keys(idMap).length === 0) return;
+    function mapId(id) { return idMap[id] || id; }
+    if (typeof meta.master === "string") meta.master = mapId(meta.master);
+    ["pos", "notes", "bends"].forEach(function (field) {
+      var src = meta[field];
+      if (!src || typeof src !== "object") return;
+      var dst = Object.create(null);
+      Object.keys(src).forEach(function (k) {
+        var parts = k.split("|");
+        if (field === "bends" && parts.length >= 2) {
+          parts[0] = mapId(parts[0]);
+          parts[1] = mapId(parts[1]);
+          dst[parts.join("|")] = src[k];
+        } else {
+          dst[mapId(k)] = src[k];
+        }
+      });
+      meta[field] = dst;
+    });
+  }
+
   function loadMermaid(text, filename) {
     var body = stripMermaidFence(text);
     /*  Adopt the curve from the file's init directive, if present, so the
@@ -3896,6 +3978,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       window.alert("Mermaid file contained no nodes or edges.");
       return;
     }
+    if (meta) remapMetaIds(meta, parsed.idMap);
 
     clearGraph(true);
 
@@ -3950,7 +4033,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     /*  Apply dotted line style. Match parsed edges to DataSet edges
         positionally — same from/to bucket, same index — so parallel
         edges don't bleed style into each other. */
-    var bucketCounters = {};
+    var bucketCounters = Object.create(null);
     parsed.edges.forEach(function (pe) {
       if (!pe.dotted) return;
       var key = pe.from + "|" + pe.to;
@@ -3997,7 +4080,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       }
 
       if (meta.bends) {
-        var bucketTrack = {};
+        var bucketTrack = Object.create(null);
         parsed.edges.forEach(function (pe) {
           var key = pe.from + "|" + pe.to;
           var idx = bucketTrack[key] || 0;
@@ -4033,7 +4116,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (filename) lastFilename = filename;
     setTimeout(function () { if (network) network.fit(); }, 30);
     markSaved();   /* a freshly-loaded graph is "clean" */
-    flashStatus("Loaded " + (filename || "graph") + " (" + nodes.length + " nodes, " + edges.length + " edges)");
+    var cut = parsed.truncated
+      ? " · " + parsed.truncated + " over-long label" + (parsed.truncated === 1 ? "" : "s")
+        + " truncated to " + MAX_LABEL_LENGTH + " characters"
+      : "";
+    flashStatus("Loaded " + (filename || "graph") + " (" + nodes.length + " nodes, " + edges.length + " edges)" + cut);
   }
 
   /* ---------- Wiring ---------- */
@@ -4224,7 +4311,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
           (its descendants via outgoing edges). Compute the full set
           BEFORE any removal so we can mark focus targets accordingly. */
       var cascade = selDel.nodes.length > 0 ? descendantsOf(selDel.nodes) : [];
-      var cascadeSet = {};
+      var cascadeSet = Object.create(null);
       cascade.forEach(function (id) { cascadeSet[id] = true; });
 
       /*  Return focus to whichever node was highlighted just before the
@@ -4241,7 +4328,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
       /* Remove the cascade + all their connected edges. */
       if (cascade.length > 0) {
-        var edgeIds = {};
+        var edgeIds = Object.create(null);
         cascade.forEach(function (nid) {
           var conn = [];
           try { conn = network.getConnectedEdges(nid) || []; } catch (err) {}
@@ -4329,8 +4416,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     return 100;
   }
 
-  /*  Height of a node's box. autoLayout calls network._resizeNodes() first,
-      so shape.height/radius are freshly measured (boundingBox lags a frame, so
+  /*  Height of a node's box. autoLayout has vis-network re-measure nodes
+      first, so shape.height/radius are freshly measured (boundingBox lags a frame, so
       we read the shape dims directly). Used to space siblings vertically so
       tall nodes — big circles, wrapped multi-line labels, cylinders — don't
       overlap their neighbours. */
@@ -4415,7 +4502,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     var allEdges = edges.get();
     if (allNodes.length === 0) return { levels: {}, byLevel: {}, maxLevel: 0, parents: {} };
 
-    var children = {}, parents = {}, inDegree = {};
+    var children = Object.create(null), parents = Object.create(null), inDegree = Object.create(null);
     allNodes.forEach(function (n) {
       children[n.id] = [];
       parents[n.id] = [];
@@ -4432,7 +4519,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     /*  Seed BFS only from real roots (master + in-degree-0 nodes); let BFS
         assign depths normally. Truly unreachable stragglers (cycles only)
         are seeded at level 0 AFTER BFS so they don't shadow real children. */
-    var levels = {};
+    var levels = Object.create(null);
     var queue = [];
     var master = allNodes.find(isMaster);
     if (master) { levels[master.id] = 0; queue.push(master.id); }
@@ -4496,7 +4583,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (_layoutAnimRaf != null) { cancelAnimationFrame(_layoutAnimRaf); _layoutAnimRaf = null; }
     var ids = Object.keys(targets);
     if (ids.length === 0) return;
-    var start = {};
+    var start = Object.create(null);
     try {
       var ps = network.getPositions(ids);
       ids.forEach(function (id) { if (ps[id]) start[id] = { x: ps[id].x, y: ps[id].y }; });
@@ -4529,12 +4616,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     var animate = !!(opts && opts.animate);
     _layoutTargets = animate ? {} : null;
     try { network.storePositions(); } catch (e) {}
-    /*  Force vis-network to (re-)measure every node's bounding box so the
-        width-aware column spacing below works on the FIRST autoLayout call
-        after nodes are added — before vis-network has a chance to paint.
-        _resizeNodes is internal but stable across vis-network versions we
-        care about; the try/catch falls back gracefully if it's renamed. */
-    try { if (typeof network._resizeNodes === "function") network._resizeNodes(); } catch (e) {}
+    /*  Have vis-network re-measure every node now, so the size-aware spacing
+        below uses current dimensions even if a node changed size since the
+        last paint. vis only exposes this as an internal event (an earlier
+        version called network._resizeNodes(), which doesn't exist, so it
+        silently did nothing); the try/catch keeps layout working if a
+        future vis-network drops the event. */
+    try { network.body.emitter.emit("_resizeNodes"); } catch (e) {}
 
     var info = computeLevels();
     var dirSign = layoutDirection === "RL" ? -1 : 1;
@@ -4603,7 +4691,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
           its parents' (already-placed) y positions. Nodes sharing a preferred
           y (i.e. siblings of the same parent) get grouped so they distribute
           symmetrically around that y instead of stacking. */
-      var prefY = {};
+      var prefY = Object.create(null);
       movable.forEach(function (n) {
         var pids = info.parents[n.id] || [];
         var ps;

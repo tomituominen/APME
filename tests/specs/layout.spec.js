@@ -67,6 +67,21 @@ test("auto layout places mixed-size nodes without overlaps", async ({ app }) => 
   expect(await overlaps(app)).toEqual([]);
 });
 
+test("auto layout asks vis-network to re-measure nodes first", async ({ app }) => {
+  // Guards against the re-measure call silently becoming a no-op again (it
+  // once targeted a method that doesn't exist in this vis-network build).
+  await loadMermaid(app, 'flowchart RL\n  m(("M"))\n  a["A"]\n  m --- a\n');
+  const emitted = await app.evaluate(() => {
+    const em = window.__apme.network.body.emitter;
+    const seen = [];
+    const orig = em.emit;
+    em.emit = function (name) { seen.push(name); return orig.apply(this, arguments); };
+    try { window.__apme.autoLayout(); } finally { em.emit = orig; }
+    return seen;
+  });
+  expect(emitted).toContain("_resizeNodes");
+});
+
 test("Enter inserts the new sibling directly below the selected node", async ({ app }) => {
   await loadMermaid(app, 'flowchart RL\n  m(("M"))\n  x["X"]\n  y["Y"]\n  z["Z"]\n  m --- x\n  m --- y\n  m --- z\n');
   const ys = () => app.evaluate(() => {

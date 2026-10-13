@@ -44,14 +44,22 @@ function readRepoFile(name) {
 }
 
 const test = base.test.extend({
+  // Console errors a spec expects (e.g. CSP "Refused to connect" when testing
+  // that the policy blocks network access). Set with test.use({...}).
+  allowedConsoleErrors: [[], { option: true }],
+
   // `app` = the page with the editor loaded. Fails the test if the app logged
   // any console error or threw an uncaught exception.
-  app: async ({ page }, use) => {
+  app: async ({ page, allowedConsoleErrors }, use) => {
     const errors = [];
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
     page.on("pageerror", (e) => errors.push(String(e)));
-    // Let reloads through the "unsaved changes" prompt; dismiss anything else.
-    page.on("dialog", (d) => (d.type() === "beforeunload" ? d.accept() : d.dismiss()));
+    // Let reloads through the "unsaved changes" prompt. Anything else goes to
+    // a spec's own handler (see onDialog) or is dismissed.
+    page.on("dialog", (d) => {
+      if (d.type() === "beforeunload") return d.accept();
+      return page.__apmeDialogHandler ? page.__apmeDialogHandler(d) : d.dismiss();
+    });
 
     const html = patchedIndex();
     await page.route(`${ORIGIN}/**`, (route) =>
@@ -62,7 +70,8 @@ const test = base.test.extend({
 
     await use(page);
 
-    base.expect(errors, "console errors / uncaught exceptions").toEqual([]);
+    const unexpected = errors.filter((e) => !allowedConsoleErrors.some((re) => re.test(e)));
+    base.expect(unexpected, "console errors / uncaught exceptions").toEqual([]);
   },
 });
 
@@ -91,6 +100,11 @@ async function nodeIdByLabel(page, label) {
   }, label);
 }
 
+/** Answer the app's alert/confirm/prompt dialogs with `handler(dialog)`. */
+function onDialog(page, handler) {
+  page.__apmeDialogHandler = handler;
+}
+
 /** Type a label into the open inline editor and commit it with Enter. */
 async function typeLabel(page, label) {
   const editor = page.locator("#inline-editor");
@@ -106,6 +120,7 @@ module.exports = {
   loadMermaid,
   nodePagePos,
   nodeIdByLabel,
+  onDialog,
   typeLabel,
   readRepoFile,
   AUTOSAVE_KEY: "apme:autosave:v1",

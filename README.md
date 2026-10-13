@@ -200,6 +200,12 @@ there's nothing to switch on.
   profile on one machine, holds a single most-recent draft, and is cleared by
   **Discard** or by the browser clearing site data. If `localStorage` is
   unavailable (e.g. locked-down private mode), auto-save silently does nothing.
+- **Privacy:** the draft is stored unencrypted and is readable by any page on
+  the same origin. On the hosted version that's every GitHub Pages site under
+  `tomituominen.github.io`; when opened as a local file in Chrome, it's every
+  other local HTML file you open. If a map is sensitive, **Save** it (which
+  drops the draft) or **Discard** the recovery prompt rather than leaving
+  unsaved work behind.
 
 ## Notes on the implementation
 
