@@ -24,7 +24,10 @@ const HOOK = `
       flushAutosave: flushAutosave,
       readAutosave: readAutosave,
       autoLayout: autoLayout,
-      edgeIsDotted: edgeIsDotted
+      edgeIsDotted: edgeIsDotted,
+      visNodeGeometry: visNodeGeometry,
+      visRemeasureNodes: visRemeasureNodes,
+      viewSize: viewSize
     };`;
 
 let patchedHtml = null;

@@ -211,6 +211,10 @@ there's nothing to switch on.
 
 - Rendering engine: [vis-network](https://github.com/visjs/vis-network) (v9.x,
   minified copy inlined in the HTML — no external requests at runtime).
+- Everything that relies on vis-network internals (node geometry, forcing a
+  re-measure) lives in one "VIS-NETWORK ADAPTER" section of `index.html`; the
+  rest uses the public API. When upgrading vis-network, run
+  `tests/specs/adapter.spec.js` first: it checks exactly those assumptions.
 - Custom drawing layers (in `beforeDrawing` / `afterDrawing` canvas hooks):
   dot grid backdrop, master aura, selection/hover edge glow, bent edges, node
   gradient/highlight pass, database cylinders, soft note glow on noted nodes,
