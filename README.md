@@ -84,7 +84,15 @@ flowchart RL
 | **A**           | Auto layout — un-pin everything, reflow, and fit |
 | **F**           | Fit the whole graph to the viewport             |
 | **⌘/Ctrl+S**    | Save (hold **Shift** for Save As)               |
+| **⌘/Ctrl+Z**    | Undo (one step per action, last 100 steps)      |
+| **⌘/Ctrl+Shift+Z** / **Ctrl+Y** | Redo                           |
 | **Esc**         | Cancel any inline editor or gesture             |
+
+Undo covers every edit, one step per action: a new node together with its
+label, a whole drag, a delete with everything it cascaded to. Selecting,
+panning and zooming aren't steps. Inside the label and note editors,
+⌘/Ctrl+Z undoes your typing instead. New, Open and crash recovery start a
+fresh history; it's kept in memory only, not saved with the file.
 
 ### Mouse gestures
 

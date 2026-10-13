@@ -484,7 +484,7 @@
       </div>
     </div>
     <div id="shortcut-hint">
-      <span class="kbd">N</span> new node &nbsp; <span class="kbd">Tab</span> chain &nbsp; <span class="kbd">Enter</span> sibling &nbsp; <span class="kbd">C</span> connect &nbsp; <span class="kbd">E</span> note &nbsp; <span class="kbd">←↑→↓</span> move &nbsp; <span class="kbd">R</span> rename &nbsp; <span class="kbd">Del</span> remove &nbsp; <span class="kbd">D</span> flip direction &nbsp; <span class="kbd">A</span> auto layout &nbsp; <span class="kbd">F</span> fit &nbsp; <span class="kbd">drag line</span> bend &nbsp; <span class="kbd">dbl-click line</span> dotted &nbsp; <span class="kbd">right-click</span> node = colour / line = label
+      <span class="kbd">N</span> new node &nbsp; <span class="kbd">Tab</span> chain &nbsp; <span class="kbd">Enter</span> sibling &nbsp; <span class="kbd">C</span> connect &nbsp; <span class="kbd">E</span> note &nbsp; <span class="kbd">←↑→↓</span> move &nbsp; <span class="kbd">R</span> rename &nbsp; <span class="kbd">Del</span> remove &nbsp; <span class="kbd">D</span> flip direction &nbsp; <span class="kbd">A</span> auto layout &nbsp; <span class="kbd">F</span> fit &nbsp; <span class="kbd">⌘/Ctrl+Z</span> undo &nbsp; <span class="kbd">drag line</span> bend &nbsp; <span class="kbd">dbl-click line</span> dotted &nbsp; <span class="kbd">right-click</span> node = colour / line = label
     </div>
     <div id="status"></div>
   </div>
@@ -735,6 +735,131 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       close();
       flashStatus("Discarded recovered draft");
     });
+  }
+
+  /* ===========================================================================
+     UNDO / REDO
+     ⌘/Ctrl+Z undoes, ⌘/Ctrl+Shift+Z or Ctrl+Y redoes, one step per user
+     action. History belongs to one document: New, Open and crash recovery
+     reset it. Up to HISTORY_LIMIT steps, in memory only.
+
+     - A snapshot is the editor's INTERNAL state (node and edge data with live
+       positions, pin flags, bends, notes, colours, plus direction and curve),
+       serialized so identical states compare as equal strings. It is not the
+       saved Mermaid text: loading a file pins every node that has a position,
+       so restoring from that would leave the whole graph pinned.
+     - Steps are recorded at action BOUNDARIES, not on a timer: every keydown
+       and pointer press first closes the previous action (beginAction), and
+       undo/redo do the same. So two quick actions never merge, and a step is
+       never recorded halfway through one: checkpoints are skipped while the
+       label editor is open (a new node exists, label-less, until the label is
+       committed) or a bend or node drag is in progress.
+     - The one action that can end without a new key or pointer press is a
+       label committed by clicking away (the click lands while the editor is
+       still open), so closing the label editor records a step too.
+     =========================================================================== */
+  var HISTORY_LIMIT = 100;
+  var _histPast = [];
+  var _histFuture = [];
+  var _histPresent = null;
+  var _histRestoring = false;
+  var _nodeDragging = false;
+
+  function captureState() {
+    var pos = {};
+    try { pos = network.getPositions(); } catch (e) {}
+    var ns = nodes.get().map(function (n) {
+      var c = {};
+      for (var k in n) if (Object.prototype.hasOwnProperty.call(n, k)) c[k] = n[k];
+      var p = pos[n.id];
+      if (p) { c.x = p.x; c.y = p.y; }   /* the DataSet's x/y lag behind drags and layouts */
+      return c;
+    });
+    return JSON.stringify({ nodes: ns, edges: edges.get(), dir: layoutDirection, curve: EXPORT_CURVE });
+  }
+
+  /*  True while an action is still in progress, so recording now would
+      capture a half-finished state. */
+  function historyBusy() {
+    return _histRestoring || !!inlineEditorTarget || !!edgeBend || _nodeDragging;
+  }
+
+  /*  Record the current state as a new step if it differs from the last one.
+      A new step clears the redo stack. */
+  function checkpoint() {
+    if (!network || historyBusy()) return;
+    var s = captureState();
+    if (s === _histPresent) return;
+    if (_histPresent !== null) {
+      _histPast.push(_histPresent);
+      if (_histPast.length > HISTORY_LIMIT) _histPast.shift();
+    }
+    _histPresent = s;
+    _histFuture = [];
+  }
+
+  /*  Start of a user action (any keydown or pointer press): close the
+      previous action's step first. A layout animation still running belongs
+      to the previous action, so it is completed instantly before recording. */
+  function beginAction() {
+    finishLayoutAnimation();
+    checkpoint();
+  }
+
+  /*  Start a fresh history at the current state (boot, New, Open, recovery). */
+  function resetHistory() {
+    _histPast = [];
+    _histFuture = [];
+    _histPresent = network ? captureState() : null;
+  }
+
+  /*  Put the graph back exactly as snapshot `s` describes. Leaves the view,
+      the file handle/name and the saved baseline alone: undoing back to the
+      saved state makes the document clean again on its own. */
+  function restoreState(s) {
+    var st = JSON.parse(s);
+    var sel = [];
+    try { sel = network.getSelectedNodes() || []; } catch (e) {}
+    if (edgeAddSource) cancelEdgeAdd();
+    hideColorPicker();
+    hoverNodeId = null;
+    hoverEdgeId = null;
+    _histRestoring = true;
+    try {
+      edges.clear();
+      nodes.clear();
+      nodes.add(st.nodes);
+      edges.add(st.edges);
+      layoutDirection = st.dir;
+      setExportCurve(st.curve);
+      recomputeNextNodeId();
+      var keep = sel.filter(function (id) { return !!nodes.get(id); });
+      try {
+        if (keep.length) network.selectNodes(keep, false); else network.unselectAll();
+      } catch (e) {}
+      trackSelection();
+    } finally {
+      _histRestoring = false;
+    }
+    try { network.redraw(); } catch (e) {}
+  }
+
+  function undo() {
+    beginAction();
+    if (_histPast.length === 0) { flashStatus("Nothing to undo"); return; }
+    _histFuture.push(_histPresent);
+    _histPresent = _histPast.pop();
+    restoreState(_histPresent);
+    flashStatus("Undo");
+  }
+
+  function redo() {
+    beginAction();
+    if (_histFuture.length === 0) { flashStatus("Nothing to redo"); return; }
+    _histPast.push(_histPresent);
+    _histPresent = _histFuture.pop();
+    restoreState(_histPresent);
+    flashStatus("Redo");
   }
 
   var EDGE_COLOR = "#8a94a6";  /* resting edge colour */
@@ -1049,6 +1174,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (inlineEditorTarget) commitInlineEditor();
     try { network.storePositions(); } catch (e) {}
     n = nodes.get(nodeId);
+    if (!n) return;   /* committing an empty NEW node above deleted it */
 
     inlineEditorTarget = { type: "node", id: nodeId };
     inlineEditorIsNew = !!opts.isNew;
@@ -1106,6 +1232,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     var prev = inlineEditorTarget;
     inlineEditorTarget = null;
     inlineEditorIsNew = false;
+    checkpoint();   /* a label committed by clicking away ends its action here */
     return prev;
   }
 
@@ -3243,6 +3370,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         try { network.storePositions(); } catch (err) {}
         params.nodes.forEach(function (id) { pinNode(id); });
       }
+      _nodeDragging = false;
     });
 
     /*  Cursor feedback: toggle marker classes on #network as the pointer
@@ -3269,7 +3397,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         hoverEdgeId via hoverEdgeAt. */
     /*  Dragging the viewport (pan) should read as grabbing; clear the
         hover markers during a drag so they don't override it. */
-    network.on("dragStart", function () {
+    network.on("dragStart", function (params) {
+      /* A node drag is one undo step: hold checkpoints until dragEnd. */
+      _nodeDragging = !!(params && params.nodes && params.nodes.length > 0);
       if (nc) { nc.classList.remove("hover-node"); nc.classList.remove("hover-edge"); }
       if (hoverNodeId != null || hoverEdgeId != null) { hoverNodeId = null; hoverEdgeId = null; try { network.redraw(); } catch (e) {} }
     });
@@ -4155,6 +4285,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         + " truncated to " + MAX_LABEL_LENGTH + " characters"
       : "";
     flashStatus("Loaded " + (filename || "graph") + " (" + nodes.length + " nodes, " + edges.length + " edges)" + cut);
+    resetHistory();   /* a loaded file (Open or crash recovery) starts a fresh history */
   }
 
   /* ---------- Wiring ---------- */
@@ -4195,6 +4326,22 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     /* Toolbar buttons keep focus after a click — don't let Enter/Space there
        trigger graph actions. */
     var onButton = tag === "BUTTON";
+
+    /*  Undo: Cmd/Ctrl+Z. Redo: Cmd/Ctrl+Shift+Z or Ctrl+Y. Not while typing,
+        so the label and note editors keep their own text undo. */
+    if (!typing && !e.altKey) {
+      var zKey = e.key === "z" || e.key === "Z";
+      if (zKey && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (e.shiftKey) redo(); else undo();
+        return;
+      }
+      if ((e.key === "y" || e.key === "Y") && e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+    }
 
     /* Tab: chain a new node off the selected one (or create the first node). */
     if (e.key === "Tab" && !typing) {
@@ -4590,6 +4737,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       rather than teleport. */
   var LAYOUT_ANIM_MS = 280;
   var _layoutAnimRaf = null;
+  var _layoutAnimTargets = null;      /* end positions of the running animation */
   var _layoutTargets = null;          /* { id: {x, y} } when collecting */
   /*  Transient { id: orderKey } map honoured by autoLayout when ordering
       siblings within a column. Set by createSiblingNode so a freshly inserted
@@ -4609,10 +4757,26 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     }
   }
 
+  /*  Jump a running layout animation straight to its end positions. Used when
+      a new user action starts (see beginAction), so the animation's result is
+      recorded as its own undo step rather than a mid-flight frame. */
+  function finishLayoutAnimation() {
+    if (_layoutAnimRaf == null) return;
+    cancelAnimationFrame(_layoutAnimRaf);
+    _layoutAnimRaf = null;
+    var t = _layoutAnimTargets;
+    _layoutAnimTargets = null;
+    if (!t) return;
+    Object.keys(t).forEach(function (id) {
+      try { network.moveNode(id, t[id].x, t[id].y); } catch (e) {}
+    });
+  }
+
   function animateNodesTo(targets) {
     if (_layoutAnimRaf != null) { cancelAnimationFrame(_layoutAnimRaf); _layoutAnimRaf = null; }
     var ids = Object.keys(targets);
     if (ids.length === 0) return;
+    _layoutAnimTargets = targets;
     var start = Object.create(null);
     try {
       var ps = network.getPositions(ids);
@@ -4633,6 +4797,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         _layoutAnimRaf = requestAnimationFrame(step);
       } else {
         _layoutAnimRaf = null;
+        _layoutAnimTargets = null;
       }
     }
     step();
@@ -4837,7 +5002,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     initNetwork();
     markSaved();   /* the empty starting canvas is "clean" */
     document.getElementById("btn-new").addEventListener("click", function () {
-      if (clearGraph(false)) markSaved();   /* a fresh empty canvas is "clean" */
+      if (clearGraph(false)) {
+        markSaved();      /* a fresh empty canvas is "clean" */
+        resetHistory();   /* ...and starts a fresh history (New isn't undoable) */
+      }
     });
     document.getElementById("btn-open").addEventListener("click", openGraph);
     document.getElementById("btn-save").addEventListener("click", function () { saveMermaid(); });
@@ -4869,6 +5037,12 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
        dragEnd) positions. Hidden/closing tabs flush immediately. --- */
     nodes.on("*", scheduleAutosave);
     edges.on("*", scheduleAutosave);
+    /* --- Undo history: every key or pointer press starts a new action, so
+       the previous one is recorded first (capture phase, before any handler
+       changes the graph). See UNDO / REDO. --- */
+    document.addEventListener("keydown", beginAction, true);
+    document.addEventListener("pointerdown", beginAction, true);
+    resetHistory();   /* the starting canvas is the bottom of the history */
     window.addEventListener("visibilitychange", function () {
       if (document.visibilityState === "hidden") flushAutosave();
     });

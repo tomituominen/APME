@@ -27,7 +27,10 @@ const HOOK = `
       edgeIsDotted: edgeIsDotted,
       visNodeGeometry: visNodeGeometry,
       visRemeasureNodes: visRemeasureNodes,
-      viewSize: viewSize
+      viewSize: viewSize,
+      undo: undo,
+      redo: redo,
+      checkpoint: checkpoint
     };`;
 
 let patchedHtml = null;
