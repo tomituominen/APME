@@ -295,6 +295,38 @@
     text-align: center;
   }
   #inline-editor::placeholder { color: rgba(236, 240, 246, 0.55); }
+  /* === Export panel (toolbar Export button) === */
+  #export-panel {
+    position: fixed;   /* placed in viewport coords under the toolbar button */
+    width: 240px;
+    box-sizing: border-box;
+    padding: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
+    z-index: 40;
+    font-size: 13px;
+    color: var(--text);
+  }
+  #export-panel.hidden { display: none; }
+  #export-panel .ep-title { font-weight: 600; margin-bottom: 8px; }
+  #export-panel .ep-themes { display: flex; gap: 14px; margin-bottom: 4px; }
+  #export-panel label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  #export-panel .ep-hint { color: var(--text-dim); font-size: 12px; margin: 4px 0 10px; }
+  #export-panel .ep-actions { display: flex; gap: 8px; }
+  #export-panel .ep-actions button {
+    flex: 1;
+    height: 30px;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #export-panel .ep-actions button:hover,
+  #export-panel .ep-actions button:focus-visible { border-color: var(--text-dim); }
   /* === Colour picker === */
   #color-picker {
     position: absolute;
@@ -465,6 +497,7 @@
     <button id="btn-new" title="New graph (clear the canvas)">New</button>
     <button id="btn-open" title="Open graph — pick a Mermaid .md/.mmd file">Open</button>
     <button id="btn-save" title="Save graph (⌘/Ctrl+S) — choose a filename; overwrites the opened file where supported. Shift adds Save As.">Save</button>
+    <button id="btn-export" title="Export the whole graph as a PNG image (download or copy)" aria-haspopup="dialog">Export</button>
     <select id="curve-select" title="Line curve style written into the saved Mermaid diagram (the editor preview is unaffected)"></select>
     <input id="file-input" type="file" accept=".md,.mmd,.mermaid,text/markdown,text/plain">
   </div>
@@ -481,6 +514,18 @@
       <div class="actions">
         <button type="button" class="cancel">Cancel</button>
         <button type="button" class="save">Save</button>
+      </div>
+    </div>
+    <div id="export-panel" class="hidden" role="dialog" aria-label="Export image">
+      <div class="ep-title">Export PNG</div>
+      <div class="ep-themes">
+        <label><input type="radio" name="export-theme" value="dark" checked> Dark</label>
+        <label><input type="radio" name="export-theme" value="light"> Light (print)</label>
+      </div>
+      <div class="ep-hint">Whole graph at 2x, notes listed below.</div>
+      <div class="ep-actions">
+        <button type="button" class="ep-download">Download</button>
+        <button type="button" class="ep-copy">Copy</button>
       </div>
     </div>
     <div id="shortcut-hint">
@@ -2884,7 +2929,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       ctx.quadraticCurveTo(C.x, C.y, ep.B.x, ep.B.y);
       /*  Highlighted bent edges brighten to EDGE_HILITE_COLOR (same width);
           otherwise the resting colour. */
-      ctx.strokeStyle = hl[e.id] ? EDGE_HILITE_COLOR : EDGE_COLOR;
+      ctx.strokeStyle = hl[e.id] ? EDGE_HILITE_COLOR : (_exportTheme ? _exportTheme.edge : EDGE_COLOR);
       ctx.lineWidth = EDGE_WIDTH;
       ctx.lineCap = "round";
       if (Array.isArray(e.dashes)) ctx.setLineDash(e.dashes);
@@ -2931,6 +2976,15 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       a harmless no-op (adapter.spec.js would flag it). */
   function visRemeasureNodes() {
     try { network.body.emitter.emit("_resizeNodes"); } catch (e) {}
+  }
+
+  /*  Draw the canvas NOW, synchronously, not on the next animation frame.
+      Image export needs this to resize, draw and capture the canvas, then
+      restore it, all before the browser repaints. vis-network 9's public
+      redraw() does exactly that (only its internal redraw requests wait for
+      a frame); adapter.spec.js checks it stays that way. */
+  function visRedrawNow() {
+    if (network) network.redraw();
   }
 
   /*  Axis-aligned bounding box of a node ({left, right, top, bottom}), or
@@ -3202,22 +3256,408 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     var topY = cy + EDGE_LABEL_VADJUST - boxH / 2;
     var leftX = cx - boxW / 2;
 
-    /* Solid background — matches font.background of straight edges. */
-    ctx.fillStyle = "#1a1d23";
+    /* Solid background — matches font.background of straight edges. Image
+       export can swap the colours (light theme). */
+    var th = _exportTheme;
+    ctx.fillStyle = th ? th.labelBox : "#1a1d23";
     ctx.fillRect(leftX, topY, boxW, boxH);
 
     /* Outlined glyphs — stroke first then fill, like vis-network. */
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineWidth = 4;
-    ctx.strokeStyle = "#14171c";
-    ctx.fillStyle = "#e6e9ef";
+    ctx.strokeStyle = th ? th.labelStroke : "#14171c";
+    ctx.fillStyle = th ? th.labelText : "#e6e9ef";
     for (var j = 0; j < lines.length; j++) {
       var ly = topY + padY + (j + 0.5) * lineH;
       ctx.strokeText(lines[j], cx, ly);
       ctx.fillText(lines[j], cx, ly);
     }
     ctx.restore();
+  }
+
+  /* ===========================================================================
+     IMAGE EXPORT (PNG)
+     The Export button renders the WHOLE graph, whatever the current zoom, as
+     a PNG at EXPORT_SCALE (2x) for slides and reports, in a dark (as on
+     screen) or light (print) theme, downloaded or copied to the clipboard.
+
+     How: clear selection/hover, measure every node, edge and label, then for
+     one synchronous moment resize vis-network's canvas to exactly that area,
+     draw it with the export theme (the draw passes read _exportTheme), copy
+     the pixels, and restore size, view and selection. All of it runs before
+     the browser repaints, so nothing on screen moves. Noted nodes get
+     numbered badges and a Notes legend is drawn under the graph, numbered
+     like the saved file's markers (notedNodes). Graph data is never
+     modified, so undo and autosave are unaffected.
+     =========================================================================== */
+  var EXPORT_SCALE = 2;              /* output pixels per canvas unit */
+  var EXPORT_MARGIN = 48;            /* canvas units of padding around the graph */
+  var EXPORT_NODE_PAD = 26;          /* room for note glows and badges around nodes */
+  var EXPORT_MAX_SIDE = 16384;       /* stay inside browser canvas limits */
+  var EXPORT_MAX_AREA = 16000000;    /* (Safari's are the tightest) */
+  var EXPORT_BADGE_R = 15;
+  var EXPORT_LEGEND_MIN_W = 640;
+  var EXPORT_NOTE_MAX_CHARS = 2000;  /* per note in the legend; keeps images sane */
+  var EXPORT_THEME_KEY = "apme:export-theme";
+  var EXPORT_FONT = "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+
+  var EXPORT_THEMES = {
+    dark: {
+      bg: "#14171c", edge: EDGE_COLOR, aura: true,
+      labelBox: "#1a1d23", labelStroke: "#14171c", labelText: "#e6e9ef",
+      badgeBg: "#ecf0f6", badgeText: "#14171c",
+      text: "#e6e9ef", muted: "#9ba4b3", rule: "#2a2f37"
+    },
+    light: {
+      bg: "#ffffff", edge: "#5b6474", aura: false,
+      labelBox: "#eef1f5", labelStroke: "#eef1f5", labelText: "#1b1f24",
+      badgeBg: "#1b1f24", badgeText: "#ffffff",
+      text: "#1b1f24", muted: "#4b5563", rule: "#d8dde4"
+    }
+  };
+  var _exportTheme = null;   /* non-null only while an export is being drawn */
+
+  function paintExportBackground(ctx) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = _exportTheme.bg;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.restore();
+  }
+
+  /*  A filled circle with a note number: on noted nodes and in the legend. */
+  function drawBadge(ctx, x, y, number, theme) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, EXPORT_BADGE_R, 0, 2 * Math.PI);
+    ctx.fillStyle = theme.badgeBg;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = theme.bg;
+    ctx.stroke();
+    ctx.fillStyle = theme.badgeText;
+    ctx.font = "600 " + (number > 9 ? 14 : 17) + "px " + EXPORT_FONT;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(number), x, y + 1);
+    ctx.restore();
+  }
+
+  /*  Badge position: the top-right of the node's outline. */
+  function badgeAnchor(n, g) {
+    if (n && !n._db && (n._master || n.shape === "circle")) {
+      var r = g.radius || Math.min(g.width, g.height) / 2;
+      return { x: g.x + r * Math.SQRT1_2, y: g.y - r * Math.SQRT1_2 };
+    }
+    var bb = g.bbox || { right: g.x + g.width / 2, top: g.y - g.height / 2 };
+    return { x: bb.right - 4, y: bb.top + 4 };
+  }
+
+  function drawNoteBadges(ctx) {
+    notedNodes().forEach(function (e) {
+      var g = visNodeGeometry(e.id);
+      if (!g) return;
+      var p = badgeAnchor(nodes.get(e.id), g);
+      drawBadge(ctx, p.x, p.y, e.number, _exportTheme);
+    });
+  }
+
+  /*  Size of an edge label box, mirroring drawEdgeLabelAt's word wrap. */
+  function edgeLabelSize(text) {
+    var w = measureEdgeLabel(text);   /* also creates _labelMeasureCtx */
+    var ctx = _labelMeasureCtx, lines = 0, line = "";
+    String(text).split(/\s+/).forEach(function (word) {
+      if (!word) return;
+      var test = line ? line + " " + word : word;
+      if (!line || ctx.measureText(test).width <= EDGE_LABEL_MAX_WIDTH) line = test;
+      else { lines++; line = word; }
+    });
+    if (line) lines++;
+    return { w: w + 12, h: lines * 24 * 1.2 + 8 };
+  }
+
+  /*  The area to export, in canvas units: every node (with room for glows
+      and badges), bent edge curves, edge labels, the root's glow in themes
+      that draw it, plus a margin. null for an empty graph. */
+  function exportBounds(theme) {
+    var l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+    function add(x, y) {
+      if (x < l) l = x;
+      if (x > r) r = x;
+      if (y < t) t = y;
+      if (y > b) b = y;
+    }
+    nodes.forEach(function (n) {
+      var g = visNodeGeometry(n.id);
+      if (!g) return;
+      var bb = g.bbox || { left: g.x - g.width / 2, right: g.x + g.width / 2,
+                           top: g.y - g.height / 2, bottom: g.y + g.height / 2 };
+      add(bb.left - EXPORT_NODE_PAD, bb.top - EXPORT_NODE_PAD);
+      add(bb.right + EXPORT_NODE_PAD, bb.bottom + EXPORT_NODE_PAD);
+    });
+    edges.forEach(function (e) {
+      var ep = endpointPositions(e);
+      if (!ep) return;
+      if (e._bend) {
+        var C = paramToAbs(ep.A, ep.B, e._bend);
+        for (var i = 0; i <= 20; i++) {
+          var p = bezierPoint(ep.A, ep.B, C, i / 20);
+          add(p.x - EDGE_WIDTH, p.y - EDGE_WIDTH);
+          add(p.x + EDGE_WIDTH, p.y + EDGE_WIDTH);
+        }
+      }
+      if (e.label) {
+        var a = edgeLabelAnchor(e);
+        if (!a) return;
+        var s = edgeLabelSize(e.label), cy = a.y + EDGE_LABEL_VADJUST;
+        add(a.x - s.w / 2, cy - s.h / 2);
+        add(a.x + s.w / 2, cy + s.h / 2);
+      }
+    });
+    if (theme.aura) {
+      var m = findMaster(), mg = m && visNodeGeometry(m.id);
+      if (mg && mg.bbox) {
+        /* Only the glow's visible inner part: its outer reach is nearly
+           transparent and would just pad the image with background. */
+        var ar = Math.max(mg.bbox.right - mg.bbox.left, mg.bbox.bottom - mg.bbox.top) / 2 * MASTER_GLOW_OUTER_MULT * 0.75;
+        add(mg.x - ar, mg.y - ar);
+        add(mg.x + ar, mg.y + ar);
+      }
+    }
+    if (!isFinite(l)) return null;
+    l -= EXPORT_MARGIN; t -= EXPORT_MARGIN; r += EXPORT_MARGIN; b += EXPORT_MARGIN;
+    return { w: r - l, h: b - t, cx: (l + r) / 2, cy: (t + b) / 2 };
+  }
+
+  /*  Greedy word wrap to maxW; keeps the text's own line breaks and splits
+      words wider than a line. Width is only ever measured on a short prefix,
+      so a huge unbroken word stays cheap. */
+  function wrapText(ctx, text, maxW) {
+    var out = [];
+    String(text).split(/\r?\n/).forEach(function (para) {
+      var line = "";
+      para.split(/\s+/).forEach(function (word) {
+        if (!word) return;
+        while (word.length > 1 && ctx.measureText(word.slice(0, 400)).width > maxW) {
+          var lo = 1, hi = Math.min(word.length, 400);
+          while (lo < hi) {
+            var mid = Math.ceil((lo + hi) / 2);
+            if (ctx.measureText(word.slice(0, mid)).width <= maxW) lo = mid; else hi = mid - 1;
+          }
+          if (line) { out.push(line); line = ""; }
+          out.push(word.slice(0, lo));
+          word = word.slice(lo);
+        }
+        var test = line ? line + " " + word : word;
+        if (!line || ctx.measureText(test).width <= maxW) line = test;
+        else { out.push(line); line = word; }
+      });
+      out.push(line);
+    });
+    return out;
+  }
+
+  /*  Lay out the Notes legend (canvas units) for `notes`, at least `minW`
+      wide. null when there are no notes. */
+  function layoutLegend(notes, minW) {
+    if (notes.length === 0) return null;
+    var w = Math.max(minW, EXPORT_LEGEND_MIN_W);
+    var ctx = document.createElement("canvas").getContext("2d");
+    var textX = EXPORT_MARGIN + EXPORT_BADGE_R * 2 + 14;
+    var maxW = w - textX - EXPORT_MARGIN;
+    var y = 30 + 40;   /* top padding, then the "Notes" heading */
+    var items = notes.map(function (e) {
+      var text = e.text.length > EXPORT_NOTE_MAX_CHARS
+        ? e.text.slice(0, EXPORT_NOTE_MAX_CHARS) + "…" : e.text;
+      ctx.font = "600 22px " + EXPORT_FONT;
+      var labelLines = wrapText(ctx, e.label, maxW);
+      ctx.font = "21px " + EXPORT_FONT;
+      var textLines = wrapText(ctx, text, maxW);
+      var item = { number: e.number, top: y, labelLines: labelLines, textLines: textLines };
+      y += labelLines.length * 30 + textLines.length * 29 + 18;
+      return item;
+    });
+    return { w: w, h: y + 18, textX: textX, items: items };
+  }
+
+  function drawLegend(ctx, legend, theme) {
+    ctx.save();
+    ctx.fillStyle = theme.rule;
+    ctx.fillRect(EXPORT_MARGIN, 0, legend.w - 2 * EXPORT_MARGIN, 1);
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = theme.text;
+    ctx.font = "600 24px " + EXPORT_FONT;
+    ctx.fillText("Notes", EXPORT_MARGIN, 30 + 12);
+    legend.items.forEach(function (it) {
+      drawBadge(ctx, EXPORT_MARGIN + EXPORT_BADGE_R, it.top + 15, it.number, theme);
+      var y = it.top + 15;
+      ctx.fillStyle = theme.text;
+      ctx.font = "600 22px " + EXPORT_FONT;
+      it.labelLines.forEach(function (ln) { ctx.fillText(ln, legend.textX, y); y += 30; });
+      ctx.fillStyle = theme.muted;
+      ctx.font = "21px " + EXPORT_FONT;
+      it.textLines.forEach(function (ln) { ctx.fillText(ln, legend.textX, y - 1); y += 29; });
+    });
+    ctx.restore();
+  }
+
+  /*  Render the export image; returns a canvas, or null for an empty graph. */
+  function renderExportImage(themeName) {
+    var theme = EXPORT_THEMES[themeName] || EXPORT_THEMES.dark;
+    if (!network || nodes.length === 0) return null;
+    finishLayoutAnimation();
+    var view = { position: network.getViewPosition(), scale: network.getScale() };
+    var sel = { nodes: network.getSelectedNodes(), edges: network.getSelectedEdges() };
+    network.unselectAll();
+    hoverNodeId = null;
+    hoverEdgeId = null;
+    visRedrawNow();   /* fresh node boxes to measure */
+    var bounds = exportBounds(theme);
+    if (!bounds) return null;
+    var legend = layoutLegend(notedNodes(), bounds.w);
+    var outW = Math.max(bounds.w, legend ? legend.w : 0);
+    var outH = bounds.h + (legend ? legend.h : 0);
+    var f = Math.min(EXPORT_SCALE, EXPORT_MAX_SIDE / outW, EXPORT_MAX_SIDE / outH,
+                     Math.sqrt(EXPORT_MAX_AREA / (outW * outH)));
+    var z = f / (window.devicePixelRatio || 1);   /* view scale giving f px per unit */
+
+    var out = document.createElement("canvas");
+    out.width = Math.round(outW * f);
+    out.height = Math.round(outH * f);
+    var octx = out.getContext("2d");
+    octx.fillStyle = theme.bg;
+    octx.fillRect(0, 0, out.width, out.height);
+
+    var graphCanvas = document.querySelector("#network canvas");
+    var recolour = theme.edge !== EDGE_COLOR;
+    _exportTheme = theme;
+    try {
+      if (recolour) network.setOptions({ edges: { color: { color: theme.edge, highlight: theme.edge, hover: theme.edge } } });
+      network.setSize((bounds.w * z) + "px", (bounds.h * z) + "px");
+      network.moveTo({ position: { x: bounds.cx, y: bounds.cy }, scale: z, animation: false });
+      visRedrawNow();
+      octx.drawImage(graphCanvas, Math.round((outW - bounds.w) / 2 * f), 0,
+                     Math.round(bounds.w * f), Math.round(bounds.h * f));
+    } finally {
+      _exportTheme = null;
+      if (recolour) network.setOptions({ edges: { color: { color: EDGE_COLOR, highlight: EDGE_HILITE_COLOR, hover: EDGE_HILITE_COLOR } } });
+      network.setSize("100%", "100%");
+      network.moveTo({ position: view.position, scale: view.scale, animation: false });
+      try { network.setSelection(sel, { unselectAll: true, highlightEdges: false }); } catch (e) {}
+      trackSelection();
+      visRedrawNow();
+    }
+    if (legend) {
+      octx.setTransform(f, 0, 0, f, 0, Math.round(bounds.h * f));
+      drawLegend(octx, legend, theme);
+      octx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    return out;
+  }
+
+  function exportFileName() {
+    var base = String(lastFilename || "").replace(/\.(md|mmd|mermaid)$/i, "");
+    return (base || "attack-path") + ".png";
+  }
+
+  function downloadBlob(blob, name) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+      if (a.parentNode) a.parentNode.removeChild(a);
+    }, 0);
+  }
+
+  /*  Export as `themeName` ("dark" | "light"), then download it or copy it
+      ("download" | "copy"). Copy falls back to a download where the browser
+      allows no clipboard images (file:// pages, older browsers). */
+  function exportImage(themeName, how) {
+    var canvas = renderExportImage(themeName);
+    if (!canvas) { flashStatus("Nothing to export"); return; }
+    var name = exportFileName();
+    var size = canvas.width + "×" + canvas.height + " px";
+    /*  Start encoding now, synchronously inside the click, so the clipboard
+        write below still counts as a user action. */
+    var blob = new Promise(function (resolve) { canvas.toBlob(resolve, "image/png"); });
+    function download(message) {
+      blob.then(function (b) {
+        if (!b) { flashStatus("Export failed"); return; }
+        downloadBlob(b, name);
+        flashStatus(message);
+      });
+    }
+    if (how !== "copy") { download("Exported " + name + " (" + size + ")"); return; }
+    if (!window.isSecureContext || !navigator.clipboard || !navigator.clipboard.write
+        || typeof ClipboardItem === "undefined") {
+      download("Copying images needs the hosted site or localhost, so " + name + " was downloaded instead");
+      return;
+    }
+    try {
+      navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).then(
+        function () { flashStatus("Image copied (" + size + ")"); },
+        function () { download("The browser blocked copying, so " + name + " was downloaded instead"); });
+    } catch (e) {
+      download("The browser blocked copying, so " + name + " was downloaded instead");
+    }
+  }
+
+  /* --- Export panel (toolbar button) --- */
+  var exportPanel = null;
+  var _exportPanelWasOpen = false;
+
+  function exportThemePref() {
+    try {
+      var t = localStorage.getItem(EXPORT_THEME_KEY);
+      return EXPORT_THEMES[t] ? t : "dark";
+    } catch (e) { return "dark"; }
+  }
+
+  function chosenExportTheme() {
+    var r = exportPanel && exportPanel.querySelector('input[name="export-theme"]:checked');
+    return r && EXPORT_THEMES[r.value] ? r.value : "dark";
+  }
+
+  function ensureExportPanel() {
+    if (exportPanel) return exportPanel;
+    exportPanel = document.getElementById("export-panel");
+    if (!exportPanel) return null;
+    exportPanel.querySelectorAll('input[name="export-theme"]').forEach(function (r) {
+      r.addEventListener("change", function () {
+        if (!r.checked) return;
+        try { localStorage.setItem(EXPORT_THEME_KEY, r.value); } catch (e) {}   /* per-viewer convenience */
+      });
+    });
+    exportPanel.querySelector(".ep-download").addEventListener("click", function () {
+      hideExportPanel();
+      exportImage(chosenExportTheme(), "download");
+    });
+    exportPanel.querySelector(".ep-copy").addEventListener("click", function () {
+      hideExportPanel();
+      exportImage(chosenExportTheme(), "copy");
+    });
+    registerPopupDismiss(function () { return exportPanel; }, hideExportPanel, { escape: true });
+    return exportPanel;
+  }
+
+  function showExportPanel() {
+    var el = ensureExportPanel();
+    if (!el) return;
+    var pref = exportThemePref();
+    el.querySelectorAll('input[name="export-theme"]').forEach(function (r) { r.checked = (r.value === pref); });
+    el.classList.remove("hidden");
+    var btn = document.getElementById("btn-export").getBoundingClientRect();
+    positionPopupAt(el, btn.left, btn.bottom + 6, { fallbackW: 240, fallbackH: 130 });
+    try { el.querySelector(".ep-download").focus(); } catch (e) {}
+  }
+
+  function hideExportPanel() {
+    if (exportPanel) exportPanel.classList.add("hidden");
   }
 
   /* ===========================================================================
@@ -3340,8 +3780,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
           3) Bent edges        — curves go behind nodes
         Then vis-network draws straight edges + nodes on top of all this. */
     network.on("beforeDrawing", function (ctx) {
-      drawDotGrid(ctx);
-      drawMasterAura(ctx);
+      if (_exportTheme) paintExportBackground(ctx); else drawDotGrid(ctx);
+      if (!_exportTheme || _exportTheme.aura) drawMasterAura(ctx);
       drawBentEdges(ctx);
     });
 
@@ -3362,6 +3802,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       drawNoteGlows(ctx);
       drawSelectionRing(ctx);
       drawAllEdgeLabels(ctx);
+      if (_exportTheme) drawNoteBadges(ctx);   /* numbered badges, image export only */
       if (inlineEditor && inlineEditorTarget) positionInlineEditor();
     });
 
@@ -3644,16 +4085,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         in the "Notes" section below the diagram — so the note text is
         VISIBLE on GitHub (which ignores the APM-DATA comment and sandboxes
         away Mermaid click links). */
-    var noteList = [];   /* [{ id, marker, label, text }] */
-    nodes.forEach(function (n) {
-      if (typeof n._note === "string" && n._note.length > 0) {
-        noteList.push({
-          id: n.id,
-          marker: noteMarker(noteList.length + 1),
-          label: n.label != null ? n.label : n.id,
-          text: n._note
-        });
-      }
+    var noteList = notedNodes().map(function (e) {   /* [{ id, marker, label, text }] */
+      return { id: e.id, marker: noteMarker(e.number), label: e.label, text: e.text };
     });
     var markerById = Object.create(null);
     noteList.forEach(function (e) { markerById[e.id] = e.marker; });
@@ -3766,6 +4199,19 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     return out.join("\n");
   }
 
+  /*  Every node that has a note, numbered 1, 2, ... in node order. The ONE
+      source of note numbering: the saved file's ①② markers and the exported
+      image's badges and legend both use it, so they always agree. */
+  function notedNodes() {
+    var out = [];
+    nodes.forEach(function (n) {
+      if (typeof n._note === "string" && n._note.length > 0) {
+        out.push({ id: n.id, number: out.length + 1, label: n.label != null ? n.label : n.id, text: n._note });
+      }
+    });
+    return out;
+  }
+
   /*  Footnote marker for the n-th note (1-based). Circled digits ①..⑳
       cover the common case; beyond that we fall back to "(n)". */
   function noteMarker(n) {
@@ -3876,17 +4322,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (name == null) { flashStatus("Save cancelled."); return; }
     name = normaliseSaveName(name);
     lastFilename = name;
-    var blob = new Blob([md], { type: "text/markdown" });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function () {
-      URL.revokeObjectURL(url);
-      a.parentNode && a.parentNode.removeChild(a);
-    }, 0);
+    downloadBlob(new Blob([md], { type: "text/markdown" }), name);
     lastSavedSignature = md;   /* graph now matches the downloaded file */
     flashStatus("Saved " + name + " (" + nodes.length + " nodes, " + edges.length + " edges)");
   }
@@ -5012,6 +5448,16 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     });
     document.getElementById("btn-open").addEventListener("click", openGraph);
     document.getElementById("btn-save").addEventListener("click", function () { saveMermaid(); });
+    var exportBtn = document.getElementById("btn-export");
+    /*  The outside-click handler closes the panel on mousedown, before the
+        click; remember whether it was open so a second click toggles it shut. */
+    exportBtn.addEventListener("mousedown", function () {
+      _exportPanelWasOpen = !!exportPanel && !exportPanel.classList.contains("hidden");
+    });
+    exportBtn.addEventListener("click", function () {
+      if (_exportPanelWasOpen) { _exportPanelWasOpen = false; hideExportPanel(); return; }
+      showExportPanel();
+    });
     document.getElementById("file-input").addEventListener("change", onFileChosen);
 
     /*  Curve-style dropdown: populate from CURVE_TYPES, default to the current

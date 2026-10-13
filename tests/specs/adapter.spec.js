@@ -89,3 +89,18 @@ test("viewSize matches the canvas vis-network draws on", async ({ app }) => {
   expect(r.view.width).toBeGreaterThan(0);
   expect(r.view).toEqual(r.canvas);
 });
+
+test("visRedrawNow draws synchronously, before returning", async ({ app }) => {
+  // Image export resizes the canvas, draws, copies the pixels and restores
+  // it all in one go, so the draw must happen inside the call, not on the
+  // next animation frame.
+  await loadMermaid(app, GRAPH);
+  const draws = await app.evaluate(() => {
+    const A = window.__apme;
+    let n = 0;
+    const count = () => { n++; };
+    A.network.on("afterDrawing", count);
+    try { A.visRedrawNow(); return n; } finally { A.network.off("afterDrawing", count); }
+  });
+  expect(draws).toBe(1);
+});

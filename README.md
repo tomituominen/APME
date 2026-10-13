@@ -177,6 +177,7 @@ pasting from `mermaid.live` or hand-written diagrams.
 | **New**      | Clear the canvas                                            |
 | **Open**     | Open a Mermaid `.md` / `.mmd` / `.mermaid` file             |
 | **Save**     | Save the graph (also **⌘/Ctrl+S**); **Shift** = Save As     |
+| **Export**   | Export the whole graph as a PNG image (see below)            |
 | **Curve ▾**  | Line-curve style written into the saved Mermaid (`bumpX` default). Only affects how the saved file renders elsewhere (GitHub/mermaid.live), not the editor. Opening a file adopts its curve. |
 
 Save and Open use the browser's native file dialogs via the **File System
@@ -186,6 +187,16 @@ place. Where that API isn't available — Firefox, Safari, or the page opened
 straight off `file://` — Open falls back to the OS file picker and Save
 prompts for a filename, then downloads the `.md` (the name is remembered for
 next time).
+
+**Export** opens a small panel: pick **Dark** (as on screen) or **Light**
+(print-friendly, white background), then **Download** the PNG or **Copy** it
+to the clipboard for pasting into slides, documents or chat. The image always
+holds the whole graph at 2x resolution, whatever the current zoom (very large
+graphs are scaled down to stay within browser canvas limits). Nodes with notes
+get numbered badges, and the notes are listed under the graph with the same
+numbers the saved file uses. Copying images needs a secure page (the hosted
+site, `localhost` or HTTPS); opened straight off `file://`, **Copy** downloads
+the PNG instead. The chosen theme is remembered in this browser.
 
 Fit and auto-layout are keyboard-only: **F** fits the graph to the
 viewport, **A** runs auto layout (un-pin everything, reflow, fit).

@@ -6,7 +6,7 @@ const path = require("path");
 const base = require("@playwright/test");
 
 const ROOT = path.resolve(__dirname, "..", "..");
-const ORIGIN = "http://apme.test";
+const ORIGIN = "http://apme.test";   // not a secure context (like file://)
 
 // The hook goes right after this line inside the app's boot handler, where
 // every internal below is in scope. If the line changes, fail loudly here
@@ -27,6 +27,9 @@ const HOOK = `
       edgeIsDotted: edgeIsDotted,
       visNodeGeometry: visNodeGeometry,
       visRemeasureNodes: visRemeasureNodes,
+      visRedrawNow: visRedrawNow,
+      renderExportImage: renderExportImage,
+      exportBounds: exportBounds,
       viewSize: viewSize,
       undo: undo,
       redo: redo,
@@ -54,9 +57,13 @@ const test = base.test.extend({
   // that the policy blocks network access). Set with test.use({...}).
   allowedConsoleErrors: [[], { option: true }],
 
+  // Where the app is served from. http://localhost is a secure context (the
+  // clipboard API needs one); the default http://apme.test is not.
+  origin: [ORIGIN, { option: true }],
+
   // `app` = the page with the editor loaded. Fails the test if the app logged
   // any console error or threw an uncaught exception.
-  app: async ({ page, allowedConsoleErrors }, use) => {
+  app: async ({ page, allowedConsoleErrors, origin }, use) => {
     const errors = [];
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
     page.on("pageerror", (e) => errors.push(String(e)));
@@ -68,10 +75,10 @@ const test = base.test.extend({
     });
 
     const html = patchedIndex();
-    await page.route(`${ORIGIN}/**`, (route) =>
+    await page.route(`${origin}/**`, (route) =>
       route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: html })
     );
-    await page.goto(`${ORIGIN}/`);
+    await page.goto(`${origin}/`);
     await page.waitForFunction(() => !!window.__apme);
 
     await use(page);
