@@ -59,7 +59,7 @@
     font-weight: 600;
     letter-spacing: 0.02em;
     color: var(--text);
-    text-decoration: none;          /* it's a link to the repo — keep brand look */
+    text-decoration: none;          /* it's a link to the repo; keep brand look */
     margin-right: 12px;
     display: flex;
     align-items: center;
@@ -361,7 +361,7 @@
     border-color: #fff;
     box-shadow: 0 0 0 2px var(--accent);
   }
-  /*  Note action — full-width pill below the swatches. Opens the note
+  /*  Note action: full-width pill below the swatches. Opens the note
       editor (separate panel) for the right-clicked node. */
   #color-picker button.note-action {
     grid-column: 1 / -1;
@@ -381,7 +381,7 @@
     background: rgba(255, 255, 255, 0.12);
     border-color: rgba(255, 255, 255, 0.25);
   }
-  /*  Shape row — three equal buttons (Box / Database / Circle) spanning
+  /*  Shape row: three equal buttons (Box / Database / Circle) spanning
       the picker width, sitting above the Note action. */
   #color-picker .shape-row {
     grid-column: 1 / -1;
@@ -574,7 +574,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   "use strict";
 
   /* ===========================================================================
-     APME — Attack Path Map Editor · application code
+     APME: Attack Path Map Editor · application code
      ---------------------------------------------------------------------------
      A single-file, no-build browser tool. vis-network (inlined & minified above)
      owns the node/edge data store plus pan / zoom / hit-testing; everything
@@ -607,7 +607,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
        node  { id, label, shape:"circle"|"box", color, _note?, _pinned? }
        edge  { id, from, to, dashes?, _bend?:{x,y} }
      Persistence: a single "%% APM-DATA: {json}" comment inside the Mermaid
-     block carries the things plain Mermaid can't express — absolute node
+     block carries the things plain Mermaid can't express: absolute node
      positions, parametric edge bends, and hover notes. The rest of the block
      is standard Mermaid, so GitHub / mermaid.live still render the diagram.
      =========================================================================== */
@@ -633,7 +633,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       otherwise Save prompts/picks a new one. Reset by New and by a fallback
       (download-based) open, which can't write back. */
   var fileHandle = null;
-  /*  Serialised snapshot of the graph as of the last save / open / new — used
+  /*  Serialised snapshot of the graph as of the last save / open / new, used
       to detect genuinely-unsaved changes for the beforeunload prompt (so it
       doesn't fire right after a save, or for no-op actions like selecting or
       panning). markSaved() refreshes it; hasUnsavedChanges() compares. */
@@ -651,15 +651,15 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
      The working graph is mirrored to localStorage so a browser crash, an
      accidental tab close, or power loss can't lose unsaved work.
 
-     - Payload = exportMermaid() — byte-for-byte what Save writes — so a
+     - Payload = exportMermaid() (byte-for-byte what Save writes) so a
        recovered draft round-trips losslessly (positions, bends, notes,
        colours, curve, direction).
      - Writes are debounced ~800 ms after any change (DataSet edits, drags,
        curve change) and flushed when the tab is hidden/closed, so at most a
        second of work is ever at risk.
      - A draft is kept ONLY while the graph differs from the last Save/Open/New
-       baseline (reusing lastSavedSignature); the moment it matches — or the
-       canvas empties — the draft is removed, so a stale draft can never shadow
+       baseline (reusing lastSavedSignature); the moment it matches (or the
+       canvas empties), the draft is removed, so a stale draft can never shadow
        a saved file.
      - On startup a surviving draft (i.e. there WAS unsaved work at last exit)
        is offered for one-click recovery (see DOMContentLoaded).
@@ -668,7 +668,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var AUTOSAVE_DEBOUNCE_MS = 800;
   var _autosaveTimer = null;
   /*  Re-entrancy guard: exportMermaid() calls storePositions(), which fires
-      DataSet events — without this, our own write would re-trigger us. */
+      DataSet events; without this, our own write would re-trigger us. */
   var _autosaveBusy = false;
 
   function autosaveAvailable() {
@@ -694,7 +694,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         }
       }
     } catch (e) {
-      /* QuotaExceeded / disabled storage / serialisation issue — autosave is a
+      /* QuotaExceeded / disabled storage / serialisation issue: autosave is a
          safety net, never a blocker, so failures are swallowed. */
     } finally {
       _autosaveBusy = false;
@@ -769,7 +769,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     restore.addEventListener("click", function () {
       loadMermaid(draft.mermaid, draft.filename || undefined);
       if (draft.filename) lastFilename = draft.filename;
-      /* Recovered work isn't in a file yet — keep it 'unsaved' so the
+      /* Recovered work isn't in a file yet; keep it 'unsaved' so the
          beforeunload guard still warns and the user is nudged to Save. */
       lastSavedSignature = null;
       close();
@@ -908,12 +908,12 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   }
 
   var EDGE_COLOR = "#8a94a6";  /* resting edge colour */
-  /*  Edge width — constant; selection/hover never thicken the line. */
+  /*  Edge width: constant; selection/hover never thicken the line. */
   var EDGE_WIDTH = 10;
   /*  Edge highlight = the line simply turns brighter (near-white) at the same
       width, no halo. One constant drives all three operations identically:
       line selection, hovering a node (its connected edges), and hovering a
-      line — via vis color.highlight/hover for straight edges and drawBentEdges
+      line, via vis color.highlight/hover for straight edges and drawBentEdges
       for bent ones. */
   var EDGE_HILITE_COLOR = "#eef2f8";
   /*  Saved Mermaid line styling, emitted as a `linkStyle default` directive
@@ -924,7 +924,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   /*  Mermaid line-curve styles offered in the toolbar dropdown. exportMermaid
       writes the chosen one into a `%%{init flowchart.curve}%%` directive; it
       only affects how the SAVED diagram renders (GitHub/mermaid.live), not the
-      editor. "bumpX" is the default — a horizontal-bias bezier that meets nodes
+      editor. "bumpX" is the default: a horizontal-bias bezier that meets nodes
       cleanly on the left↔right flow. */
   var CURVE_TYPES = ["basis", "linear", "bumpX", "bumpY", "cardinal",
     "catmullRom", "monotoneX", "monotoneY", "natural", "step", "stepAfter", "stepBefore"];
@@ -933,7 +933,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   /*  Id of the node the mouse is currently hovering (or null). Its connected
       edges brighten, same as a selected line (see highlightedEdgeSet). */
   var hoverNodeId = null;
-  /*  Id of the edge the mouse is currently hovering (or null) — it brightens
+  /*  Id of the edge the mouse is currently hovering (or null); it brightens
       the same way. */
   var hoverEdgeId = null;
 
@@ -943,7 +943,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var currentSelectedNode = null;
   var prevSelectedNode = null;
 
-  /*  "Edge add" mode — set by pressing E with a node selected. The next
+  /*  "Edge add" mode: set by pressing E with a node selected. The next
       click on a different node completes the gesture and creates the edge;
       click empty or Esc cancels. */
   var edgeAddSource = null;
@@ -988,7 +988,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     /*  Adding an edge can change which level a node belongs to (e.g. a
         previously-orphan node now has a parent). Re-flow the layout. */
     autoLayout();
-    /*  Move selection + history to the target — feels natural since the
+    /*  Move selection + history to the target, which feels natural since the
         user just acted on it, and it keeps the prev/current pair in sync. */
     try { network.selectNodes([targetId], false); } catch (e) {}
     trackSelection();
@@ -1080,7 +1080,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   /* ===========================================================================
      SECTION 4 · NODE IDENTITY & MASTER NODE
-     Monotonic id allocation and the "master" node — the single red circle that
+     Monotonic id allocation and the "master" node: the single red circle that
      the first-created node is promoted to and that the layout engine roots on.
      =========================================================================== */
 
@@ -1113,20 +1113,20 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var MASTER_COLOUR = "#b3434a";
   function masterNodeProps() {
     return {
-      /*  `_master` is the canonical master marker — NOT the circle shape.
+      /*  `_master` is the canonical master marker, NOT the circle shape.
           (Regular nodes may now also be circles, so shape can't identify
           the master.) The master defaults to a circle but is found
           everywhere via isMaster(). */
       _master: true,
       shape: "circle",
-      /*  Extra padding between the label and the circle's edge — a circle
+      /*  Extra padding between the label and the circle's edge; a circle
           inscribes its text, so a roomy margin keeps the master from
           looking cramped (the global node margin is 24). */
       margin: 40,
       widthConstraint: { minimum: 90, maximum: 220 },
       /*  Use the same colour treatment as every other node
-          (colorObjectFromHex) so the master's border — and especially its
-          SELECTION outline — matches the rest: a lightened shade of the
+          (colorObjectFromHex) so the master's border (and especially its
+          SELECTION outline) matches the rest: a lightened shade of the
           fill at the global borderWidth 3 / borderWidthSelected 5, rather
           than the old bespoke white-on-select border. The master stays
           distinct through its red fill, circle shape, size and aura. */
@@ -1157,8 +1157,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   var inlineEditor = null;
   /*  Inline editor now supports two target kinds:
-        { type: 'node', id }  — anchored on the node, used by R / dbl-click on node
-        { type: 'edge', id }  — anchored on the edge midpoint (or Bezier mid),
+        { type: 'node', id }  - anchored on the node, used by R / dbl-click on node
+        { type: 'edge', id }  - anchored on the edge midpoint (or Bezier mid),
                                  used by right-click on edge for label annotation. */
   var inlineEditorTarget = null;
   var inlineEditorIsNew = false;
@@ -1256,7 +1256,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     inlineEditorIsNew = false;
     inlineEditorOriginalLabel = e.label || "";
     ed.value = e.label || "";
-    /* Neutral styling — edges don't carry a colour to match. */
+    /* Neutral styling: edges don't carry a colour to match. */
     ed.style.background = "";
     ed.style.borderColor = "";
     ed.style.display = "block";
@@ -1355,7 +1355,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   function onInlineEditorKey(e) {
     if ((e.key === "s" || e.key === "S") && (e.metaKey || e.ctrlKey) && !e.altKey) {
-      /* Commit the label first, then save — the global handler can't see this
+      /* Commit the label first, then save; the global handler can't see this
          because the editor stops propagation below. */
       e.preventDefault();
       e.stopPropagation();
@@ -1392,8 +1392,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   /* ===========================================================================
      SECTION 6 · NODE CREATION & KEYBOARD NAVIGATION
-     Builds new nodes from the keyboard — chained child (Tab), sibling (Enter),
-     free-floating (N) — and moves the selection between nodes with the arrow
+     Builds new nodes from the keyboard: chained child (Tab), sibling (Enter),
+     free-floating (N), and moves the selection between nodes with the arrow
      keys using a directional-cone pick.
      =========================================================================== */
 
@@ -1401,7 +1401,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       with a comfortable margin so the inline editor floating over it is also
       visible. Unlike network.focus(), which always recentres the node, this
       leaves the view exactly where it is when the node is already visible and
-      otherwise nudges just far enough — so adding a node feels like the canvas
+      otherwise nudges just far enough, so adding a node feels like the canvas
       follows you, not like it jumps. */
   function ensureNodeVisible(nodeId, animation) {
     if (!network) return;
@@ -1418,7 +1418,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     /*  Build the node box from its live position + shape size. We can't use
         network.getBoundingBox here: it only refreshes on a draw frame, so
         right after autoLayout()'s synchronous moveNode it still holds the
-        node's PREVIOUS box — which made the pan land short. */
+        node's PREVIOUS box, which made the pan land short. */
     var w = g.width, h = g.height;
     if (g.radius && (!w || !h)) { w = h = g.radius * 2; }
     if (!w || !h) {
@@ -1461,7 +1461,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (!src) return null;
     /*  Direction-aware edge orientation. With layoutDirection RL (master on
         right), the natural "forward" chain places the new node on the LEFT
-        of the source — i.e. Tab adds a child further into the attack path.
+        of the source, i.e. Tab adds a child further into the attack path.
         The `direction` arg ("right"/"left") is only used to flip the edge
         direction for Shift+Tab. */
     var newId = newNodeId();
@@ -1508,7 +1508,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     }
     /*  Insert the new node directly BELOW the selected one within its column:
         order every movable sibling by its current y, and give the new node a
-        key just past the selected node's — so it lands between the selected
+        key just past the selected node's, so it lands between the selected
         node and the next sibling, pushing the rest down. Cleared right after
         so general layout keeps its default ordering. */
     _layoutOrderHint = buildInsertOrderHint(newId, sy);
@@ -1544,7 +1544,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
      the layout is roughly grid-like). Second pass: any node strictly in
      the half-plane (fallback for sparse graphs). */
   /*  (Earlier versions used a parent/child neighbour heuristic here;
-      replaced by previous-selection history — see prevSelectedNode.) */
+      replaced by previous-selection history; see prevSelectedNode.) */
 
   function navigateSelection(direction) {
     if (!network) return;
@@ -1565,7 +1565,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       var firstId = sorted[0].id;
       try { network.selectNodes([firstId], false); } catch (e) {}
       trackSelection();
-      /*  Selection only — the viewport is intentionally left where it is so
+      /*  Selection only: the viewport is intentionally left where it is so
           arrow-key navigation moves the highlight, not the graph. */
       return;
     }
@@ -1611,7 +1611,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
     try { network.selectNodes([target.id], false); } catch (e) {}
     trackSelection();
-    /*  Selection only — don't re-centre the viewport on the target. Arrow
+    /*  Selection only: don't re-centre the viewport on the target. Arrow
         keys move the highlight between nodes; the graph stays put. */
   }
 
@@ -1650,13 +1650,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     try { network.selectNodes([id], false); } catch (e) {}
     trackSelection();
     /* Nudge the view just enough to reveal the freshly placed node (only if
-       the layout put it off-screen) — see ensureNodeVisible. */
+       the layout put it off-screen); see ensureNodeVisible. */
     ensureNodeVisible(id);
     showInlineEditor(id, { isNew: true });
     return id;
   }
 
-  /*  Eight visually distinct hues, all readable with white text — enough to
+  /*  Eight visually distinct hues, all readable with white text: enough to
       categorise nodes by phase / severity / team without overwhelming the
       picker. The first entry is the tool's default node colour, so picking it
       visually "resets" a node. */
@@ -1730,7 +1730,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       transparent; the visible colour comes from `_bg` via the renderer. */
   var DB_CAP = 16;          /* elliptical cap (lid / bottom) half-height */
   var DB_PAD = 8;           /* gap between the cap and the text */
-  var DB_MAX_WIDTH = 240;   /* wrap width — keeps cylinders from going too wide */
+  var DB_MAX_WIDTH = 240;   /* wrap width: keeps cylinders from going too wide */
   var DB_TEXT_DROP = 6;     /* nudge label below bbox centre into the can body */
   var NODE_FONT_FACE = "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
   var NODE_FONT_COLOR = "#ecf0f6";   /* the ONE label colour for every node (see PALETTE) */
@@ -1750,8 +1750,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         highlight: { background: TRANSPARENT, border: TRANSPARENT },
         hover: { background: TRANSPARENT, border: TRANSPARENT }
       },
-      /*  Transparent font: vis still MEASURES the label (so the box — and
-          thus the cylinder — sizes and word-wraps correctly) but paints
+      /*  Transparent font: vis still MEASURES the label (so the box, and
+          thus the cylinder, sizes and word-wraps correctly) but paints
           nothing. We draw the label ourselves in drawDatabaseShapes, on
           top of the cylinder and above the edges. */
       font: { size: 28, color: TRANSPARENT, face: NODE_FONT_FACE }
@@ -1760,10 +1760,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   /*  A circle inscribes its label. vis-network only horizontally CENTRES a
       circle's text when a minimum width forces a fixed-width (centre-aligned)
-      label box; without one, a very short label (1–2 chars) yields a
+      label box; without one, a very short label (1-2 chars) yields a
       height-driven circle whose narrow label box is left-aligned, so the text
       lands ~8px left of centre (the master dodges this via its own minimum).
-      A small minimum makes such tiny circles width-driven — hence centred —
+      A small minimum makes such tiny circles width-driven, hence centred,
       while any label wider than it is unaffected. */
   var CIRCLE_MIN_WIDTH = 34;
 
@@ -1869,8 +1869,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     el.style.top = py + "px";
   }
 
-  /*  Wire "click outside closes" — and, when opts.escape, also "Escape closes"
-      — for a popup. getEl returns the (possibly lazily-created) element; hide
+  /*  Wire "click outside closes" (and, when opts.escape, also "Escape closes")
+      for a popup. getEl returns the (possibly lazily-created) element; hide
       is the popup's own hide function. Call once when the popup is built. */
   function registerPopupDismiss(getEl, hide, opts) {
     opts = opts || {};
@@ -2037,7 +2037,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       e.stopPropagation();
       hideNoteEditor();
     });
-    /*  Keep all keystrokes inside the textarea — Escape cancels, plain
+    /*  Keep all keystrokes inside the textarea: Escape cancels, plain
         Enter saves, Shift+Enter inserts a newline, every other key
         (including the global shortcuts like N, Tab, R, D, …) is suppressed
         so typing into the note doesn't accidentally trigger graph actions. */
@@ -2063,7 +2063,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       e.stopPropagation();
     }, true);
     /* Escape is handled inside the textarea keydown above, so no doc-level
-       Escape here — just close on outside mousedown. */
+       Escape here; just close on outside mousedown. */
     registerPopupDismiss(function () { return noteEditor; }, hideNoteEditor);
     return noteEditor;
   }
@@ -2119,10 +2119,10 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
      =========================================================================== */
 
   var DOTTED_PATTERN = [2, 18];
-  /*  Newly-created edges (Tab chain, Enter sibling, C connect) start dotted —
+  /*  Newly-created edges (Tab chain, Enter sibling, C connect) start dotted:
       the dotted "attack path" line is the common case, so it's the default.
       Double-click an edge to toggle it solid. (Imported files keep whatever
-      solid/dotted style they were saved with — this only affects new edges.) */
+      solid/dotted style they were saved with; this only affects new edges.) */
   var DEFAULT_EDGE_DASHES = DOTTED_PATTERN;
 
   function edgeIsDotted(edge) {
@@ -2142,11 +2142,11 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
      =========================================================================== */
 
   /* ---------- Drag a line to bend it (smooth Bezier) ----------
-     Click-and-hold anywhere on an edge, then drag — the cursor becomes the
+     Click-and-hold anywhere on an edge, then drag: the cursor becomes the
      control point of a quadratic Bezier between the endpoints, so the line
      adopts a single smooth curvature that adjusts as you move. The data
      model is `e._bend = { x, y }` storing the control-point position in
-     canvas coords. There is no extra node and no kink — just one curve.
+     canvas coords. There is no extra node and no kink, just one curve.
 
      We render bent edges ourselves in vis-network's `afterDrawing` hook
      (vis-network's straight-line draw is suppressed by setting the per-edge
@@ -2162,7 +2162,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   var DRAG_THRESHOLD_PX = 4;
   /*  Custom double-click detection for edges. Because the bend mousedown
       handler stops the event in capture phase, vis-network's own
-      doubleClick event never fires for edges — so we time-detect dbl-clicks
+      doubleClick event never fires for edges, so we time-detect dbl-clicks
       ourselves in onEdgeBendMouseUp. */
   var DBL_CLICK_MS = 450;
   var lastEdgeClick = null;
@@ -2223,7 +2223,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   }
 
   /*  Read endpoint positions LIVE from vis-network. This is crucial during a
-      node drag — the DataSet's x/y stays at the last storePositions snapshot,
+      node drag: the DataSet's x/y stays at the last storePositions snapshot,
       but getPositions() returns the moving position so the curve follows. */
   function endpointPositions(edge) {
     if (!network || !edge) return null;
@@ -2271,7 +2271,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     try { id = network.getEdgeAt(domPt); } catch (e) {}
     if (id != null) return id;
 
-    /* Custom pass for bent edges — generous threshold (~30 DOM px at scale 1)
+    /* Custom pass for bent edges: generous threshold (~30 DOM px at scale 1)
        so the curve is easy to grab. 60 samples keeps it from missing
        mid-segments. */
     var scale = 1;
@@ -2296,7 +2296,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   /*  Edge under the cursor for HOVER purposes. Unlike findEdgeAt (used by the
       bend gesture, which is happy to grab a bent edge from its old straight
       path too), this only counts a bent edge when the cursor is near its
-      VISIBLE Bezier — so the hover highlight follows the drawn curve, not the
+      VISIBLE Bezier, so the hover highlight follows the drawn curve, not the
       original straight location. Straight edges defer to vis-network, whose
       hit-test matches their rendered line. */
   function hoverEdgeAt(domPt, canvasPt) {
@@ -2305,7 +2305,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     try { id = network.getEdgeAt(domPt); } catch (e) {}
     if (id != null) {
       var e0 = edges.get(id);
-      if (e0 && !e0._bend) return id;   /* straight edge — vis's hit is correct */
+      if (e0 && !e0._bend) return id;   /* straight edge; vis's hit is correct */
       /* bent edge matched on its straight path → ignore; test the curve below */
     }
     var scale = 1;
@@ -2340,9 +2340,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       edges.update({
         id: edgeId,
         _bend: { u: p.u, v: p.v },
-        /* Hide vis-network's straight stroke — we render the curve ourselves. */
+        /* Hide vis-network's straight stroke; we render the curve ourselves. */
         color: { color: TRANSPARENT, highlight: TRANSPARENT, hover: TRANSPARENT, inherit: false }
-        /*  No font override needed — the global edges.font is already
+        /*  No font override needed: the global edges.font is already
             transparent (drawAllEdgeLabels paints every label ourselves). */
       });
     }
@@ -2354,7 +2354,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   function onEdgeBendMouseDown(e) {
     if (edgeBend) return;                 /* gesture already in progress */
     if (!network) return;
-    /* Pointer events may not have e.button — fall through if it's missing. */
+    /* Pointer events may not have e.button; fall through if it's missing. */
     if (e.button != null && e.button !== 0) return;
     if (inlineEditor && inlineEditor.style.display !== "none") return;
     var t = e.target;
@@ -2391,7 +2391,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     e.preventDefault();
 
     /*  Anchor the gesture so that:
-          (1) on a tiny cursor move the curve barely changes — no big jump
+          (1) on a tiny cursor move the curve barely changes: no big jump
               of the Bezier midpoint (which is where the label sits), even
               if the user clicked far from the chord's middle, AND
           (2) the click point on the curve follows the cursor 1:1, which
@@ -2402,7 +2402,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         cursor_delta / (2·t·(1−t)) where t is the click's parametric
         position on the chord, so B(t) = clickPoint + cursor_delta.
         For an already-bent edge the existing control point is the natural
-        anchor (no scaling needed — a tiny drag should make a tiny change). */
+        anchor (no scaling needed; a tiny drag should make a tiny change). */
     var startControlPt;
     var gestureFactor = 1;
     if (ed._bend) {
@@ -2417,7 +2417,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         var tClick = len2 > 0
           ? ((canvasPt.x - Ax) * ABx + (canvasPt.y - Ay) * ABy) / len2
           : 0.5;
-        /*  Clamp t away from the endpoints — at t=0 or t=1 the scaling
+        /*  Clamp t away from the endpoints: at t=0 or t=1 the scaling
             factor explodes (division by 0), and clicks right next to a
             node would otherwise produce wildly large bends. */
         tClick = Math.max(0.1, Math.min(0.9, tClick));
@@ -2475,7 +2475,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
     /*  Translate the control point by the cursor's canvas-space delta from
         the gesture start, scaled by gestureFactor (=1 for already-bent edges,
-        1/(2·t·(1−t)) for a fresh bend on a straight edge — see mousedown
+        1/(2·t·(1−t)) for a fresh bend on a straight edge; see mousedown
         comment). The scaling makes the click point on the resulting curve
         follow the cursor 1:1 regardless of where on the line you grabbed. */
     var dx = canvasPt.x - edgeBend.startCanvasPt.x;
@@ -2539,7 +2539,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       lastEdgeClick = null;
       return;
     }
-    /* First click in a potential double-click pair — select + record. */
+    /* First click in a potential double-click pair: select + record. */
     try { network.unselectAll(); } catch (err) {}
     try { network.selectEdges([edgeId]); } catch (err) {}
     trackSelection();
@@ -2549,7 +2549,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   /* --- custom Bezier rendering --- */
 
   /*  Dot grid backdrop drawn before everything else. Spacing is in canvas
-      units so the grid scales with zoom — gives a sense of "depth" without
+      units so the grid scales with zoom, which gives a sense of "depth" without
       the dots ever crowding or vanishing. Snap origin to a grid multiple
       so dots stay perfectly aligned as the user pans. */
   /* ===========================================================================
@@ -2580,8 +2580,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     if (!(scale > 0)) return;
 
     /*  Adaptive spacing: the grid is anchored to world coordinates, but as
-        the user zooms OUT the on-screen gap (sp * scale) shrinks, which —
-        with a fixed world spacing — would balloon the dot count into the
+        the user zooms OUT the on-screen gap (sp * scale) shrinks, which,
+        with a fixed world spacing, would balloon the dot count into the
         millions and freeze the tab. Double the world spacing until the
         on-screen gap is at least DOT_GRID_MIN_SCREEN px, so the dot count
         stays bounded by the viewport size at any zoom. */
@@ -2663,7 +2663,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       darker) gives the node a subtle "lit from above" look, and a 1 px
       top-edge highlight adds a crisp ridge that reads as a bevelled
       corner. Inset by the node's borderWidth so we don't overpaint the
-      border. Circle nodes skip this — the master aura handles their
+      border. Circle nodes skip this; the master aura handles their
       visual; gradients on a small circle look muddy. */
   var NODE_BORDER_WIDTH = 3;
   var NODE_CORNER_RADIUS = 6;
@@ -2692,7 +2692,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   }
 
   /*  Trace a node's shape outline at outset `o` (0 = the body itself) onto
-      ctx's CURRENT path — never calls beginPath, so the caller can combine it
+      ctx's CURRENT path; it never calls beginPath, so the caller can combine it
       with other sub-paths (e.g. an even-odd clip). Geometry per shape mirrors
       how that shape is actually drawn: cylinder from its bounding box,
       circle from its radius, box as a rounded rect. `g` is the node's
@@ -2723,7 +2723,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     }
   }
 
-  /*  The shared "lit from above" overlay gradient — light at the top,
+  /*  The shared "lit from above" overlay gradient: light at the top,
       transparent in the middle, dark at the bottom. Used by both the box
       shine pass and the database cylinder so every shape shades the same. */
   function nodeShineGradient(ctx, topY, bottomY) {
@@ -2769,7 +2769,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         ctx.clip();
         ctx.fillStyle = nodeShineGradient(ctx, y, y + h);
         ctx.fillRect(x, y, w, h);
-        /*  Crisp 1 px top-edge highlight — reads as a bevelled top ridge. */
+        /*  Crisp 1 px top-edge highlight: reads as a bevelled top ridge. */
         ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
         ctx.fillRect(x, y, w, 1);
       }
@@ -2860,7 +2860,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       ctx.ellipse(cx, top + cap, rx, cap, 0, 0, 2 * Math.PI);
       ctx.stroke();
 
-      /*  Label — word-wrapped and centred in the cylinder body. vis
+      /*  Label: word-wrapped and centred in the cylinder body. vis
           measured/sized the (transparent) box from this text, so wrapping
           to the same content width reproduces its line breaks. The body's
           visual centre sits a touch below the bbox centre (the lid eats
@@ -3016,13 +3016,13 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   }
 
   /*  Anchor an edge label at the midpoint of the VISIBLE part of the
-      edge — the chord segment outside both endpoint bounding boxes. This
+      edge: the chord segment outside both endpoint bounding boxes. This
       avoids labels landing inside a wide node when the other endpoint is
       small (wide multi-line label vs short single-line label).
 
       For bent edges the Bezier midpoint (t=0.5) is the curve's apex,
       naturally offset from the chord, so it's already outside both boxes
-      for any non-trivial bend — keep the original formula for those. */
+      for any non-trivial bend; keep the original formula for those. */
   function edgeLabelAnchor(e) {
     if (!e) return null;
     var ep = endpointPositions(e);
@@ -3044,7 +3044,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     var tA = bbA ? Math.min(1, Math.max(0, rectExitT(bbA, dx, dy))) : 0;
     var tB = bbB ? Math.min(1, Math.max(0, 1 - rectExitT(bbB, -dx, -dy))) : 1;
     if (tA > tB) {
-      /* Boxes overlap or chord is fully inside a box — collapse to the
+      /* Boxes overlap or chord is fully inside a box: collapse to the
          midpoint of the chord between the centres so we still produce
          something rather than failing. */
       var m = (tA + tB) / 2; tA = m; tB = m;
@@ -3055,7 +3055,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   /*  Paint every edge label in afterDrawing so the renderer and the
       inline editor share one formula (mid + EDGE_LABEL_VADJUST). This
-      runs AFTER vis-network draws nodes, so labels float on top — which
+      runs AFTER vis-network draws nodes, so labels float on top, which
       is what we want for an annotation tool where the text must always
       be legible. vis-network's own edge labels are hidden via transparent
       font in the global edges options. */
@@ -3071,7 +3071,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   /*  Note cue: a soft outer glow around any node that carries a `_note`.
       Drawn in afterDrawing and clipped to the region OUTSIDE the node body
-      (so node drop shadows can't dim it and it never overpaints the node) —
+      (so node drop shadows can't dim it and it never overpaints the node). It
       works uniformly on box, circle and cylinder. The glow is tinted to each
       node's own outline, so a green node glows green, a red node red, etc.
       (see noteGlowColor). */
@@ -3100,8 +3100,8 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   }
 
   /*  Paint the note glow around every noted node, tinted to the node's own
-      outline colour. Runs in afterDrawing (ON TOP of the nodes) — not behind
-      them — because the
+      outline colour. Runs in afterDrawing (ON TOP of the nodes), not behind
+      them, because the
       nodes' dark drop shadows are painted in the node pass and would
       otherwise darken the glow unevenly (most on the small box, least on
       the larger shapes, making the box look dimmer). To keep the glow from
@@ -3153,7 +3153,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
      the same off-white as the edge highlight (EDGE_HILITE_COLOR) so "active"
      reads consistently across nodes and edges. Animation is driven by a
      self-managed requestAnimationFrame loop that ONLY runs while something is
-     selected (see scheduleRingFrame / drawSelectionRing) — a static graph
+     selected (see scheduleRingFrame / drawSelectionRing); a static graph
      with no selection never spins the CPU.
      =========================================================================== */
   var RING_COLOR      = EDGE_HILITE_COLOR;  /* off-white, matches edge highlight */
@@ -3262,7 +3262,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     ctx.fillStyle = th ? th.labelBox : "#1a1d23";
     ctx.fillRect(leftX, topY, boxW, boxH);
 
-    /* Outlined glyphs — stroke first then fill, like vis-network. */
+    /* Outlined glyphs: stroke first then fill, like vis-network. */
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineWidth = 4;
@@ -3676,7 +3676,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         widthConstraint: { maximum: 460 },
         /*  Don't bold the label on hover/select. vis-network's default
             (labelHighlightBold: true) widens the text, and shapes that
-            size to fit their label — circles especially — then visibly
+            size to fit their label, circles especially, then visibly
             grow on hover. Keeping it off keeps the node size stable. */
         labelHighlightBold: false,
         font: { size: 28, color: NODE_FONT_COLOR, face: "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" },
@@ -3691,7 +3691,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         shadow: { enabled: true, color: "rgba(0,0,0,0.45)", size: 10, x: 0, y: 4 }
       },
       edges: {
-        /* Arrows intentionally disabled — semantic direction (from→to) is
+        /* Arrows intentionally disabled: semantic direction (from→to) is
            kept in the data and in Mermaid's `---` direction, but the
            rendering shows plain undirected lines. */
         arrows: { to: { enabled: false }, from: { enabled: false }, middle: { enabled: false } },
@@ -3716,18 +3716,18 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
           align: "horizontal",
           vadjust: 0
         },
-        /*  Subtle natural curvature on every non-bent edge — the line bows
+        /*  Subtle natural curvature on every non-bent edge: the line bows
             gently rather than being a sharp straight. Bent edges render via
             our own beforeDrawing hook as quadratic Beziers (vis-network's
             stroke is hidden on those by setting per-edge color transparent). */
         smooth: { enabled: true, type: "continuous", roundness: 0.12 },
-        /*  Constant width — selecting an edge does NOT thicken it
+        /*  Constant width: selecting an edge does NOT thicken it
             (selectionWidth 0); the highlight is the brighter colour
             (color.highlight), matching the bent-edge renderer. */
         width: EDGE_WIDTH,
         selectionWidth: 0,
         /*  Word-wrap long edge labels. Width is tuned for typical attack-
-            path node sizes — wide nodes like "Domain Admin" leave only
+            path node sizes: wide nodes like "Domain Admin" leave only
             ~160 px of free space between them at LEVEL_STEP=380, so the
             label wraps inside that with a small margin to each endpoint. */
         widthConstraint: { maximum: 150 }
@@ -3738,23 +3738,23 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         navigationButtons: false,
         keyboard: { enabled: false },
         /*  Selecting (or creating) a NODE must not highlight its connected
-            edges — otherwise a mid-chain node's edges would brighten when the
+            edges; otherwise a mid-chain node's edges would brighten when the
             user only added/selected a node. Brightening is reserved for
             explicitly selecting a line. Our selectNodes() calls pass
             highlightEdges=false to match this for programmatic selection. */
         selectConnectedEdges: false,
-        /*  Hovering a node SHOULD highlight its connected edges — vis brightens
+        /*  Hovering a node SHOULD highlight its connected edges; vis brightens
             connected straight edges to color.hover; bent ones brighten via the
             hoverNode handler + drawBentEdges (highlightedEdgeSet). */
         hoverConnectedEdges: true
       },
-      /*  vis-network's in-canvas Add Node / Add Edge toolbar is disabled —
+      /*  vis-network's in-canvas Add Node / Add Edge toolbar is disabled;
           the entire graph is driven by keyboard shortcuts (N, Tab, Enter,
           C, E, R, Del, arrows) plus the inline editor and right-click pickers.
           Node renames and edge labels are handled by our own doubleClick
           handler installed in initNetwork(). */
       manipulation: { enabled: false },
-      /*  Physics is OFF — node positions are owned by our autoLayout()
+      /*  Physics is OFF; node positions are owned by our autoLayout()
           engine (BFS-level layout) and manual drags (which pin a node).
           Enabling physics would fight with the deterministic layout. */
       physics: { enabled: false },
@@ -3775,9 +3775,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     updateEmptyHint();
 
     /*  beforeDrawing layer order (bottom → top):
-          1) Dot grid          — engineering-paper backdrop, scales with zoom
-          2) Master aura       — soft red glow sits under everything
-          3) Bent edges        — curves go behind nodes
+          1) Dot grid          - engineering-paper backdrop, scales with zoom
+          2) Master aura       - soft red glow sits under everything
+          3) Bent edges        - curves go behind nodes
         Then vis-network draws straight edges + nodes on top of all this. */
     network.on("beforeDrawing", function (ctx) {
       if (_exportTheme) paintExportBackground(ctx); else drawDotGrid(ctx);
@@ -3786,16 +3786,16 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     });
 
     /*  afterDrawing layer order (bottom → top):
-          1) Database cylinders — drawn here (not beforeDrawing) so they sit
+          1) Database cylinders - drawn here (not beforeDrawing) so they sit
                                  ON TOP of the edges, exactly like the opaque
                                  box/circle nodes vis paints in its own pass.
                                  Includes the cylinder's own label.
-          2) Node shine pass   — gradient + top highlight overlaid on every box.
-          3) Note glows        — white ring/halo, drawn here (clipped to
+          2) Node shine pass   - gradient + top highlight overlaid on every box.
+          3) Note glows        - white ring/halo, drawn here (clipped to
                                  outside each body) so node drop shadows can't
                                  darken it.
-          4) Edge labels       — readable text always on top of nodes.
-          5) Inline editor     — repositioned to match its anchor. */
+          4) Edge labels       - readable text always on top of nodes.
+          5) Inline editor     - repositioned to match its anchor. */
     network.on("afterDrawing", function (ctx) {
       drawDatabaseShapes(ctx);
       drawNodeShinePass(ctx);
@@ -3806,7 +3806,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       if (inlineEditor && inlineEditorTarget) positionInlineEditor();
     });
 
-    /*  Dragging a node "pins" it — the auto-layout engine will then leave
+    /*  Dragging a node "pins" it; the auto-layout engine will then leave
         that node where the user put it, even when new nodes are added or
         the graph reflows. */
     network.on("dragEnd", function (params) {
@@ -3819,7 +3819,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
     /*  Cursor feedback: toggle marker classes on #network as the pointer
         enters/leaves nodes and edges. The CSS cascade (see the cursor
-        block in <style>) then picks the right cursor — pointer over a
+        block in <style>) then picks the right cursor: pointer over a
         node, grab over an edge, grab on empty canvas. We don't fight the
         active-gesture classes (edge-bending / adding-edge) because those
         rules carry !important and outrank these. */
@@ -3834,7 +3834,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       if (nc) nc.classList.remove("hover-node");
       if (hoverNodeId != null) { hoverNodeId = null; try { network.redraw(); } catch (e) {} }
     });
-    /*  NB: edge hover is NOT driven by vis-network's hoverEdge/blurEdge —
+    /*  NB: edge hover is NOT driven by vis-network's hoverEdge/blurEdge;
         those hit-test an edge's straight path, which is wrong for a bent edge
         (the highlight would trigger over the original line, not the visible
         curve). Instead the geometry-aware mousemove handler below sets
@@ -3952,7 +3952,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
           if (edgeBend) return;
           var r = nc.getBoundingClientRect();
           var dp = { x: e.clientX - r.left, y: e.clientY - r.top };
-          /*  Over a node? leave edge hover alone — vis handles the node cursor
+          /*  Over a node? leave edge hover alone; vis handles the node cursor
               (.hover-node) and brightens its connected edges via hoverNode. */
           var nodeUnder = null;
           try { nodeUnder = network.getNodeAt(dp); } catch (err) {}
@@ -4017,7 +4017,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       .replace(/[\n\u2028\u2029]/g, "<br/>");
   }
 
-  /*  Reverse of escapeMermaid — restore labels read from a Mermaid file.
+  /*  Reverse of escapeMermaid: restore labels read from a Mermaid file.
       Applied to node labels, edge labels, and anything else we read back
       from inside `"..."` in the diagram body. */
   function unescapeMermaid(s) {
@@ -4032,7 +4032,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   }
 
   /*  Strip a trailing footnote marker that export appended to a noted
-      node's label — a circled number (U+2460–U+24FF, ①..⓿ etc.) or the
+      node's label: a circled number (U+2460 to U+24FF, ①..⓿ etc.) or the
       "(n)" fallback, with the separating space. Only the very end of the
       label is touched, so markers a user legitimately put mid-label are
       left alone. */
@@ -4048,14 +4048,14 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       try { network.storePositions(); } catch (e) {}
     }
 
-    /*  Stash everything Mermaid can't represent natively — absolute
-        positions, parametric edge bends, and per-node hover notes — in
+    /*  Stash everything Mermaid can't represent natively (absolute
+        positions, parametric edge bends, and per-node hover notes) in
         an APM-DATA comment block. Mermaid (and GitHub's renderer) skip
         comment lines, so the diagram still renders correctly while our
         loader recovers full fidelity. */
     var meta = { v: 1, dir: layoutDirection || "RL", master: null, pos: {}, bends: {}, notes: {} };
     nodes.forEach(function (n) {
-      if (n._master) meta.master = n.id;   /* who's the master — see import */
+      if (n._master) meta.master = n.id;   /* who's the master; see import */
       if (typeof n.x === "number" && typeof n.y === "number" && isFinite(n.x) && isFinite(n.y)) {
         meta.pos[n.id] = [Math.round(n.x), Math.round(n.y)];
       }
@@ -4082,7 +4082,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     /*  Assign a footnote marker (①②③…) to every node that has a note, in
         node iteration order. The marker is appended to the node's label in
         the rendered diagram and used as the heading of the matching entry
-        in the "Notes" section below the diagram — so the note text is
+        in the "Notes" section below the diagram, so the note text is
         VISIBLE on GitHub (which ignores the APM-DATA comment and sandboxes
         away Mermaid click links). */
     var noteList = notedNodes().map(function (e) {   /* [{ id, marker, label, text }] */
@@ -4107,7 +4107,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     }));
     body.push("flowchart " + dir);
 
-    /* Nodes — quote every label so commas, colons, etc. survive. Noted
+    /* Nodes: quote every label so commas, colons, etc. survive. Noted
        nodes get their marker appended to the label. */
     var styleLines = [];
     nodes.forEach(function (n) {
@@ -4136,7 +4136,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       }
     });
 
-    /*  Edges — Mermaid's "open link" (no arrow) is `---` for solid and
+    /*  Edges: Mermaid's "open link" (no arrow) is `---` for solid and
         `-.-` for dotted. Labels go between pipe characters right after
         the connector: `A ---|"label"| B`. */
     edges.forEach(function (e) {
@@ -4172,7 +4172,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
     /*  Wrap in a Markdown fenced code block so GitHub renders the diagram
         inline when the .md is committed. Pure-Mermaid loaders can still
-        accept this file — our own loader strips the fence on read. */
+        accept this file; our own loader strips the fence on read. */
     var out = [];
     out.push("# Attack Path Map");
     out.push("");
@@ -4266,9 +4266,9 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   }
 
   /*  Save the current graph. Layered:
-        1. File System Access API — overwrite the open file in place, or (no
+        1. File System Access API: overwrite the open file in place, or (no
            handle / Save As) show a native Save dialog to pick name + location.
-        2. Fallback (Firefox/Safari/file://) — prompt for a filename, then
+        2. Fallback (Firefox/Safari/file://): prompt for a filename, then
            download. The chosen name is remembered for next time. */
   function saveMermaid(opts) {
     if (nodes.length === 0 && edges.length === 0) {
@@ -4358,7 +4358,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   /* ---------- Mermaid import ---------- */
 
   /*  Strip the Markdown ```mermaid fence so we get the raw Mermaid body.
-      Accepts files with or without the fence — pasting straight Mermaid
+      Accepts files with or without the fence; pasting straight Mermaid
       source into the loader still works. */
   function stripMermaidFence(text) {
     var t = String(text || "");
@@ -4388,7 +4388,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
           styles: {id: {fill}} }
       shape ∈ 'box' | 'circle' | 'database'. The master is resolved later
       (loadMermaid) from APM-DATA's `master` id, falling back to the first
-      circle. `idx` on edges is the position within its from→to bucket —
+      circle. `idx` on edges is the position within its from→to bucket,
       used by the metadata applier to match parallel edges to their bend. */
   function parseMermaidBody(body) {
     /*  Maps keyed by node id are prototype-free: ids come from the file, and
@@ -4421,7 +4421,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       .map(function (l) { return l.replace(/\s+$/, ""); })
       .filter(function (l) { return l.length > 0 && !/^\s*%%/.test(l); });
 
-    /*  Mermaid id token — generous enough to hold UUIDs (digits/letters/
+    /*  Mermaid id token: generous enough to hold UUIDs (digits/letters/
         underscores/hyphens). Must start with a letter or digit so a stray
         hyphen at the front isn't read as part of an id. */
     var ID = "[A-Za-z0-9][A-Za-z0-9_-]*";
@@ -4429,7 +4429,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
     var reDir    = /^\s*(?:flowchart|graph)\s+(LR|RL|TB|BT|TD)\s*$/i;
     var reCircle = new RegExp("^\\s*(" + ID + ")\\s*\\(\\(" + QSTR + "\\)\\)\\s*$");
-    /*  Database / cylinder: id[("label")] — must be tried before the
+    /*  Database / cylinder: id[("label")]; must be tried before the
         rectangle patterns, whose brackets it also starts with. */
     var reDb     = new RegExp("^\\s*(" + ID + ")\\s*\\[\\(" + QSTR + "\\)\\]\\s*$");
     var reRectQ  = new RegExp("^\\s*(" + ID + ")\\s*\\[" + QSTR + "\\]\\s*$");
@@ -4452,7 +4452,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     function noteNode(rawId, label, shape) {
       var id = safeId(rawId);
       if (seen[id]) {
-        /*  Re-mention of an existing node — Mermaid allows declaring a
+        /*  Re-mention of an existing node: Mermaid allows declaring a
             label once, then referring to the bare id elsewhere. Upgrade
             the stored entry if this mention carries richer info. */
         var ex = out.nodes.find(function (n) { return n.id === id; });
@@ -4523,7 +4523,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       m = reRectU.exec(line);
       if (m) { noteNode(m[1], unescapeMermaid(m[2]).trim(), "box"); continue; }
 
-      /* Unrecognised line — silently skip (Mermaid has many other
+      /* Unrecognised line: silently skip (Mermaid has many other
          directives like linkStyle, subgraph, etc. that we don't render). */
     }
     return out;
@@ -4626,7 +4626,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     recomputeNextNodeId();
 
     /*  Apply node fill colours from `style X fill:#hex` to every node,
-        master included — the master is no longer colour-locked. */
+        master included; the master is no longer colour-locked. */
     Object.keys(parsed.styles).forEach(function (id) {
       if (!nodes.get(id)) return;
       var hex = normaliseHex(parsed.styles[id].fill);
@@ -4634,7 +4634,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     });
 
     /*  Apply dotted line style. Match parsed edges to DataSet edges
-        positionally — same from/to bucket, same index — so parallel
+        positionally (same from/to bucket, same index) so parallel
         edges don't bleed style into each other. */
     var bucketCounters = Object.create(null);
     parsed.edges.forEach(function (pe) {
@@ -4711,7 +4711,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       nodes.update(pinIds.map(function (id) { return { id: id, _pinned: true }; }));
     }
 
-    /*  Arrange any nodes that didn't carry an explicit position — the
+    /*  Arrange any nodes that didn't carry an explicit position; the
         already-pinned ones (those that came in with positions) get
         skipped by the layout engine. */
     autoLayout();
@@ -4732,7 +4732,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   function onFileChosen(ev) {
     var file = ev.target.files && ev.target.files[0];
     if (!file) return;
-    /*  A download-opened file has no writable handle — Save will prompt for a
+    /*  A download-opened file has no writable handle; Save will prompt for a
         name rather than silently overwrite the wrong file. */
     fileHandle = null;
     var reader = new FileReader();
@@ -4762,7 +4762,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
     var tag = document.activeElement && document.activeElement.tagName;
     var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
-    /* Toolbar buttons keep focus after a click — don't let Enter/Space there
+    /* Toolbar buttons keep focus after a click; don't let Enter/Space there
        trigger graph actions. */
     var onButton = tag === "BUTTON";
 
@@ -4832,7 +4832,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       return;
     }
 
-    /* A: auto layout — un-pin everything, reflow, and fit. */
+    /* A: auto layout, un-pin everything, reflow, and fit. */
     if (!typing && !onButton && !e.ctrlKey && !e.metaKey && !e.altKey
         && (e.key === "a" || e.key === "A")) {
       if (!network) return;
@@ -4900,7 +4900,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       return;
     }
 
-    /* Enter: create a sibling — a new node connected to the same parents
+    /* Enter: create a sibling, a new node connected to the same parents
        as the selected node, placed below it. */
     if (e.key === "Enter" && !typing && !onButton && network) {
       var selE = network.getSelection();
@@ -4962,14 +4962,14 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
             re-flow non-pinned nodes. */
         autoLayout();
         /*  Tell the user how many nodes were removed if it's more than the
-            direct selection — so a surprising cascade isn't silent. */
+            direct selection, so a surprising cascade isn't silent. */
         if (cascade.length > selDel.nodes.length) {
           flashStatus("Removed " + cascade.length + " nodes (cascade).");
         }
       }
 
       /*  Clear vis-network's internal selection (it can hold stale ids
-          of the deleted nodes otherwise — which then blocks future
+          of the deleted nodes otherwise, which then blocks future
           arrow-key navigation in navigateSelection). */
       try { network.unselectAll(); } catch (err) {}
 
@@ -4978,7 +4978,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         try { network.selectNodes([focusTarget], false); } catch (err) {}
         try { network.focus(focusTarget, { scale: network.getScale(), animation: { duration: 180 } }); } catch (err) {}
         /*  After programmatic selection the tracker would normally set
-            prevSelectedNode = (the deleted node) — which is meaningless.
+            prevSelectedNode = (the deleted node), which is meaningless.
             Reset so the next selection starts a fresh history. */
         currentSelectedNode = focusTarget;
         prevSelectedNode = null;
@@ -5023,7 +5023,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       vis-network hasn't measured yet (first call after `nodes.add`, before
       the first paint). The fallback estimates ~14 px per char + the 24 px
       margin on each side, clamped to the same widthConstraint.maximum that
-      vis-network applies. Slightly oversized is fine — we'd rather give a
+      vis-network applies. Slightly oversized is fine; we'd rather give a
       label some extra breathing room than crowd it. */
   function nodeWidthFor(id) {
     var bb = nodeBBox(id);
@@ -5081,7 +5081,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
   /*  Measure the rendered box width of an edge label using the same font
       and word-wrap rules drawEdgeLabelAt uses, so the layout reserves
       exactly the space the label will need at draw time. Cached canvas
-      context — no DOM cost per call after the first. */
+      context; no DOM cost per call after the first. */
   var _labelMeasureCtx = null;
   function measureEdgeLabel(text) {
     if (!text) return 0;
@@ -5268,7 +5268,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
         gap between every adjacent level pair is large enough for the
         widest node on either side AND any edge labels that cross between
         them. For typical graphs (all nodes ~same width, short labels) the
-        spacing collapses to LEVEL_STEP — only graphs with wide nodes or
+        spacing collapses to LEVEL_STEP; only graphs with wide nodes or
         wide labels get expanded columns. */
     var levelXs = [anchorX];
     for (var lv = 1; lv <= info.maxLevel; lv++) {
@@ -5347,7 +5347,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
       /*  Walk clusters in centre-y order, placing each as a contiguous,
           height-aware stack (see layoutStack). Clearance is enforced ONLY at
-          cluster boundaries — threading the previous cluster's last node so a
+          cluster boundaries, threading the previous cluster's last node so a
           small cluster never gets its members shuffled past a sibling
           cluster's centre (that's what caused the crossings before), while
           tall nodes still push the next cluster clear. Cluster ordering by
@@ -5390,7 +5390,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
 
   /*  Clear every bent edge: drop the parametric control point and restore
       the default colour so vis-network's straight-line stroke (with subtle
-      smooth curvature) renders again. Used by flip — bent edges are a
+      smooth curvature) renders again. Used by flip: bent edges are a
       manual override that would otherwise carry their relative shape into
       the mirrored geometry and create unintended crossings. */
   function clearAllBends() {
@@ -5405,7 +5405,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       A shortcut): discard every manual pin so the layout flows from
       scratch, re-run the BFS auto-layout with animation so nodes glide to
       their new slots, then fit. Edge bends are kept intact (parametric, so
-      they re-attach to the new endpoints cleanly) — only node positions
+      they re-attach to the new endpoints cleanly); only node positions
       reset. Fit waits until the animation finishes so the framing reflects
       the final positions. */
   function runAutoLayout() {
@@ -5481,7 +5481,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     document.addEventListener("keydown", onKeyDown);
 
     /* --- Auto-save: mirror every change to localStorage (see AUTO-SAVE section).
-       The DataSet "*" events cover node/edge add/remove/update — i.e. labels,
+       The DataSet "*" events cover node/edge add/remove/update, i.e. labels,
        colours, shapes, notes, dotted toggles, bends, and (via storePositions on
        dragEnd) positions. Hidden/closing tabs flush immediately. --- */
     nodes.on("*", scheduleAutosave);
@@ -5506,7 +5506,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
     })();
 
     /* Warn before discarding GENUINELY unsaved work (changed since the last
-       save / open / new) — not after a clean save or for no-op actions. */
+       save / open / new), not after a clean save or for no-op actions. */
     window.addEventListener("beforeunload", function (e) {
       if (hasUnsavedChanges()) {
         e.preventDefault();
