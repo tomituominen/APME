@@ -495,8 +495,8 @@
   <div id="toolbar">
     <a class="brand" href="https://github.com/tomituominen/APME" target="_blank" rel="noopener noreferrer">Attack Path Map Editor</a>
     <button id="btn-new" title="New graph (clear the canvas)">New</button>
-    <button id="btn-open" title="Open graph — pick a Mermaid .md/.mmd file">Open</button>
-    <button id="btn-save" title="Save graph (⌘/Ctrl+S) — choose a filename; overwrites the opened file where supported. Shift adds Save As.">Save</button>
+    <button id="btn-open" title="Open graph: pick a Mermaid .md/.mmd file">Open</button>
+    <button id="btn-save" title="Save graph (⌘/Ctrl+S): choose a filename; overwrites the opened file where supported. Shift adds Save As.">Save</button>
     <button id="btn-export" title="Export the whole graph as a PNG image (download or copy)" aria-haspopup="dialog">Export</button>
     <select id="curve-select" title="Line curve style written into the saved Mermaid diagram (the editor preview is unaffected)"></select>
     <input id="file-input" type="file" accept=".md,.mmd,.mermaid,text/markdown,text/plain">
@@ -773,7 +773,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
          beforeunload guard still warns and the user is nudged to Save. */
       lastSavedSignature = null;
       close();
-      flashStatus("Recovered unsaved work — use Save to write it to a file");
+      flashStatus("Recovered unsaved work. Use Save to write it to a file");
     });
     discard.addEventListener("click", function () {
       removeAutosave();
@@ -4318,7 +4318,7 @@ function zu(){return zu=Object.assign||function(g){for(var t=1;t<arguments.lengt
       System Access API. */
   function downloadMermaidFallback(md) {
     var suggested = normaliseSaveName(lastFilename);
-    var name = window.prompt("Save as — filename:", suggested);
+    var name = window.prompt("Save as (filename):", suggested);
     if (name == null) { flashStatus("Save cancelled."); return; }
     name = normaliseSaveName(name);
     lastFilename = name;
